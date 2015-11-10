@@ -1,0 +1,170 @@
+<?php
+
+/**
+ * ProcessWire XML Parser
+ *
+ * ProcessWire 2.x
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * @author Tabea David <td@justonestep.de>
+ * @version 0.0.1
+ * @copyright Copyright (c) 2015 
+ * @see https://github.com/justonestep/processwire-xmlparser
+ * @see http://www.processwire.com
+ */
+
+/**
+ * Class XmlParser
+ */
+class XmlParser extends Process implements Module  {
+
+  const PAGE_NAME = 'XML Parser';
+  const PERMISSION = 'xmlparser';
+
+  /**
+   * Retrieves module meta data
+   * Implementation of the Module interface
+   *
+   * @return array
+   * @see http://processwire.com/apigen/class-Module.html
+   */
+  static public function getModuleInfo() {
+    return array(
+      'title' => 'XML Parser',
+      'version' => 001,
+      'summary' => '',
+      'author' => 'Tabea David',
+      'icon' => 'th-list',
+      'href' => 'https://github.com/justonestep/processwire-xmlparser',
+      'useNavJSON' => true,
+      'permission' => 'xmlparser',
+      'permissions' => array(
+        'xmlparser' => 'Administer XML Parser'
+      ),
+      'singular' => true,
+      'autoload' => false,
+    );
+  }
+
+  /**
+   * Initialize the module
+   *
+   */
+  public function init() {
+    if ($this->permissions->get(self::PERMISSION)->id && !$this->user->hasPermission(self::PERMISSION)) {
+      throw new WirePermissionException("You have no permission to use this module");
+    }
+  }
+
+  /**
+   * Display XML Parser Settings
+   * This function is executed when a page with this Process assigned is accessed.
+   */
+  public function execute() {
+    // create a new form
+    $form = $this->modules->get('InputfieldForm'); 
+    $form->attr('id', 'xmlparser'); 
+    $form->action = './';
+    $form->method = 'post';
+
+    $wrapper = new InputfieldWrapper();
+    $wrapper->attr('title', $this->_('Overview')); 
+
+    $set = $this->modules->get('InputfieldFieldset'); 
+    $set->label = $this->_('Settings');
+
+    $fieldTemplate = $this->modules->get('InputfieldSelect');
+    $fieldTemplate->label = $this->_('Template');
+    $fieldTemplate->attr('name', 'xp_template');
+    $fieldTemplate->attr('value', $fields->xp_template);
+    $fieldTemplate->columnWidth = 50;
+    $fieldTemplate->addOption('', '');
+    foreach ($this->templates as $template) {
+      if ($template->flags & \Template::flagSystem) continue;
+      $fieldTemplate->addOption($template->id, (!empty($template->label) ? $template->label : $template->name));
+    }
+
+    $fieldPage = $this->modules->get('InputfieldPageListSelect');
+    $fieldPage->label = $this->_('Parent Page');
+    $fieldPage->name = 'xp_parent';
+    $fieldPage->attr('value', $fields->xp_parent);
+    $fieldPage->columnWidth = 50;
+
+    $set->add($fieldTemplate);
+    $set->add($fieldPage);
+
+    $wrapper->add($set);
+    $form->add($wrapper);
+
+    $this->addSubmit($form);
+
+    return $form->render();
+  }
+
+  /**
+   * Add a submit button, moved to a function so we don't have to do this several times
+   *
+   */
+  protected function addSubmit(InputfieldForm $form) {
+    $f = $this->modules->get('InputfieldSubmit');
+    $f->name = 'submit';
+    $f->value = $this->_('Submit');
+    $form->add($f);
+  }
+
+  /**
+   * Install routine
+   * A new page with this Process module assigned is created.
+   */
+  public function ___install() {
+    // create XML Parser Admin page
+    $page = $this->pages->get('template=admin, name=' . self::PAGE_NAME);
+    if (!$page->id) {
+      $page = new Page();
+      $page->template = 'admin';
+      $page->parent = $this->pages->get($this->config->adminRootPageID);
+      $page->title = self::PAGE_NAME;
+      $page->name = self::PAGE_NAME;
+      $page->process = $this;
+      $page->save();
+
+      $this->message("Created Page: {$page->path}");
+    }
+
+    // create permission to limit access to the module
+    $permission = $this->permissions->get(self::PERMISSION);
+    if (!$permission->id) {
+      $permission = new Permission();
+      $permission->name = self::PERMISSION;
+      $permission->title = $this->_('Edit XML Parser');
+      $permission->save();
+
+      $this->message('Created new permission: ' . self::PERMISSION);
+    }
+  }
+
+  /**
+   * Uninstall routine
+   * 
+   * This should return the site to the same state 
+   * it was in before the module was installed. 
+   */
+  public function ___uninstall() {
+    // delete the admin page
+    $moduleID = $this->modules->getModuleID($this); 
+    $selector = "template=admin, process=$moduleID, name=" . self::PAGE_NAME;
+    $page = $this->pages->get($selector); 
+
+    if ($page->id) {
+      $page->delete();
+      $this->message("Deleted Page: {$page->path}"); 
+    }
+
+    // delete the xmlparser permission
+    $permission = $this->permissions->get(self::PERMISSION);
+    if ($permission->id) {
+      $permission->delete();
+      $this->message("Deleted Permission: " . self::PERMISSION);
+    }
+  }
+}
