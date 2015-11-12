@@ -13,12 +13,16 @@
  * @see http://www.processwire.com
  */
 
+require_once(wire('config')->paths->XmlParser . 'lib/Parser.php');
+use Jos\Parser;
+
 /**
  * Class XmlParser
  */
 class XmlParser extends Process implements Module  {
 
   const PAGE_NAME = 'XML Parser';
+  const MODULE_NAME = 'XmlParser';
   const PERMISSION = 'xmlparser';
 
   /**
@@ -41,9 +45,24 @@ class XmlParser extends Process implements Module  {
       'permissions' => array(
         'xmlparser' => 'Administer XML Parser'
       ),
-      'singular' => true,
-      'autoload' => false,
+      'singular' => false,
+      'autoload' => true,
     );
+  }
+
+  /**
+   * @field array Default config values
+   */
+  protected static $defaults = array(
+    'xpTmplate' => '',
+    'xpParent' => ''
+  );
+
+ /**
+  * construct
+  */
+  public function __construct() {
+    $this->parser = new Parser;
   }
 
   /**
@@ -52,7 +71,7 @@ class XmlParser extends Process implements Module  {
    */
   public function init() {
     if ($this->permissions->get(self::PERMISSION)->id && !$this->user->hasPermission(self::PERMISSION)) {
-      throw new WirePermissionException("You have no permission to use this module");
+      throw new WirePermissionException('You have no permission to use this module');
     }
   }
 
@@ -61,22 +80,86 @@ class XmlParser extends Process implements Module  {
    * This function is executed when a page with this Process assigned is accessed.
    */
   public function execute() {
-    // create a new form
-    $form = $this->modules->get('InputfieldForm'); 
-    $form->attr('id', 'xmlparser'); 
+    $output = '';
+
+    $isPreconf = !$this->parser->isPreconfigured() && !$this->parser->isPreconfigurationRunning();
+    if ($isPreconf || $this->input->get->action === 'edit') {
+      $output .= $this->renderPreconfigurationForm();
+    } else if ($this->parser->isPreconfigurationRunning()) {
+      $this->parser->setPreconfiguration();
+    }
+
+    $output .= $this->renderPreconfigurationView();
+    $output .= $this->renderMappingForm();
+
+    return $output;
+  }
+
+  private function renderMappingForm() {
+    $template = $this->templates->get($this->parser->data['xpTemplate']);
+
+    $form = $this->modules->get('InputfieldForm');
+    $form->attr('id', 'xmlparser');
     $form->action = './';
     $form->method = 'post';
 
     $wrapper = new InputfieldWrapper();
-    $wrapper->attr('title', $this->_('Overview')); 
+    $wrapper->attr('title', $this->_('Mapping'));
 
-    $set = $this->modules->get('InputfieldFieldset'); 
+    $set = $this->modules->get('InputfieldFieldset');
+    $set->label = $this->_('Mapping');
+
+    foreach ($template->fields as $tfield) {
+      // @todo: implement repeater handling
+      $field = $this->modules->get('InputfieldText');
+      $field->label = $tfield->name;
+      $field->name = $tfield->name;
+      $field->size = 30;
+      $field->attr('value', $this->parser->data['']); // @todo
+      $field->columnWidth = 50;
+
+      $set->add($field);
+    }
+
+    $wrapper->add($set);
+    $form->add($wrapper);
+
+    $this->addSubmit($form);
+
+    return $form->render();
+  }
+
+  private function renderPreconfigurationView() {
+    $edit = $this->page->url . '?action=edit';
+    $output = '<h2>' . $this->_('Presets') . '</h2>';
+    $output .= '<dl class="nav">';
+
+    foreach ($this->parser->getPreconfiguration() as $config) {
+      $output .= "<dt><a class='label' href='$edit'>{$config['name']}</a></dt>";
+      $output .= "<dd><div class='actions'>{$config['val']} <a href='$edit'>{$this->_('Edit')}</a></div></dd>";
+    }
+    $output .= '</dl>';
+
+    return $output;
+  }
+
+  private function renderPreconfigurationForm() {
+    $form = $this->modules->get('InputfieldForm');
+    $form->attr('id', 'xmlparser');
+    $form->action = './';
+    $form->method = 'post';
+
+    $wrapper = new InputfieldWrapper();
+    $wrapper->attr('title', $this->_('Overview'));
+
+    $set = $this->modules->get('InputfieldFieldset');
     $set->label = $this->_('Settings');
 
     $fieldTemplate = $this->modules->get('InputfieldSelect');
     $fieldTemplate->label = $this->_('Template');
-    $fieldTemplate->attr('name', 'xp_template');
-    $fieldTemplate->attr('value', $fields->xp_template);
+    $fieldTemplate->attr('name', 'xpTemplate');
+    $fieldTemplate->attr('value', $this->parser->data['xpTemplate']);
+    $fieldTemplate->required = true;
     $fieldTemplate->columnWidth = 50;
     $fieldTemplate->addOption('', '');
     foreach ($this->templates as $template) {
@@ -86,8 +169,9 @@ class XmlParser extends Process implements Module  {
 
     $fieldPage = $this->modules->get('InputfieldPageListSelect');
     $fieldPage->label = $this->_('Parent Page');
-    $fieldPage->name = 'xp_parent';
-    $fieldPage->attr('value', $fields->xp_parent);
+    $fieldPage->name = 'xpParent';
+    $fieldPage->required = true;
+    $fieldPage->attr('value', $this->parser->data['xpParent']);
     $fieldPage->columnWidth = 50;
 
     $set->add($fieldTemplate);
