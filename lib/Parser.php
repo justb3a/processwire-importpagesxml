@@ -9,9 +9,6 @@ class Parser {
   */
   public function __construct() {
     $this->data = wire('modules')->getModuleConfigData(\XmlParser::MODULE_NAME);
-    $this->input = wire('input');
-    $this->templates = wire('templates');
-    $this->pages = wire('pages');
   }
 
   public function isPreconfigured() {
@@ -22,17 +19,21 @@ class Parser {
     return $state;
   }
 
-  public function isPreconfigurationRunning() {
-    $state = false;
-    if ($this->input->post->xpTemplate || $this->input->post->xpParent) {
-      $state = true;
-    }
-    return $state;
+  public function setPreconfiguration() {
+    if (wire('input')->post->xpTemplate) $this->data['xpTemplate'] = wire('input')->post->xpTemplate;
+    if (wire('input')->post->xpParent) $this->data['xpParent'] = wire('input')->post->xpParent;
+    $this->save();
   }
 
-  public function setPreconfiguration() {
-    if ($this->input->post->xpTemplate) $this->data['xpTemplate'] = $this->input->post->xpTemplate;
-    if ($this->input->post->xpParent) $this->data['xpParent'] = $this->input->post->xpParent;
+  public function setConfiguration() {
+    $template = wire('templates')->get($this->data['xpTemplate']);
+    $toJson = array();
+    foreach ($template->fields as $tfield) {
+      $name = $tfield->name;
+      $toJson[$name] = wire('input')->post->$name;
+    }
+
+    $this->data['xpFields'] = json_encode($toJson);
     $this->save();
   }
 
@@ -40,13 +41,17 @@ class Parser {
     return array(
       array(
         'name' => __('Template'),
-        'val' => $this->templates->get($this->data['xpTemplate'])->name
+        'val' => wire('templates')->get($this->data['xpTemplate'])->name
       ),
       array(
         'name' => __('Parent'),
-        'val' => $this->pages->get($this->data['xpParent'])->title
+        'val' => wire('pages')->get($this->data['xpParent'])->title
       )
     );
+  }
+
+  public function getConfiguration() {
+    return json_decode($this->data['xpFields']);
   }
 
   public function save() {

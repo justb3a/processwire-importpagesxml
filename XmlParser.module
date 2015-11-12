@@ -55,8 +55,11 @@ class XmlParser extends Process implements Module  {
    */
   protected static $defaults = array(
     'xpTmplate' => '',
-    'xpParent' => ''
+    'xpParent' => '',
+    'xpFields' => ''
   );
+
+  protected $output = '';
 
  /**
   * construct
@@ -80,26 +83,40 @@ class XmlParser extends Process implements Module  {
    * This function is executed when a page with this Process assigned is accessed.
    */
   public function execute() {
-    $output = '';
+    $action = $this->input->get->action;
 
-    $isPreconf = !$this->parser->isPreconfigured() && !$this->parser->isPreconfigurationRunning();
-    if ($isPreconf || $this->input->get->action === 'edit') {
-      $output .= $this->renderPreconfigurationForm();
-    } else if ($this->parser->isPreconfigurationRunning()) {
+    // first usage OR action `edit-preconf`
+    if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') 
+      $this->output .= $this->renderPreconfigurationForm();
+
+    // action `edit-conf`
+    if ($action === 'edit-conf') 
+      $this->output .= $this->renderMappingForm();
+
+    // submit action `edit-preconf`
+    if ($this->input->post->preconfigSubmit)
       $this->parser->setPreconfiguration();
-    }
 
-    $output .= $this->renderPreconfigurationView();
-    $output .= $this->renderMappingForm();
+    // submit action `edit-conf`
+    if ($this->input->post->mappingSubmit)
+      $this->parser->setConfiguration();
 
-    return $output;
+    // submit upload xml file
+    // if ($this->input->post->uploadSubmit)
+      // $this->uploadAndParseXMLOrSomethingLikeThat();
+      // @see: https://gist.github.com/somatonic/5236008
+
+    // view
+    if (!$action) 
+      $this->renderViews();
+
+    return $this->output;
   }
 
   private function renderMappingForm() {
     $template = $this->templates->get($this->parser->data['xpTemplate']);
 
     $form = $this->modules->get('InputfieldForm');
-    $form->attr('id', 'xmlparser');
     $form->action = './';
     $form->method = 'post';
 
@@ -109,13 +126,15 @@ class XmlParser extends Process implements Module  {
     $set = $this->modules->get('InputfieldFieldset');
     $set->label = $this->_('Mapping');
 
+    $values = $this->parser->getConfiguration();
     foreach ($template->fields as $tfield) {
       // @todo: implement repeater handling
+      // @todo: implement image extra fields (description, tags..) handling
       $field = $this->modules->get('InputfieldText');
       $field->label = $tfield->name;
       $field->name = $tfield->name;
       $field->size = 30;
-      $field->attr('value', $this->parser->data['']); // @todo
+      $field->attr('value', $values->{$tfield->name});
       $field->columnWidth = 50;
 
       $set->add($field);
@@ -124,28 +143,65 @@ class XmlParser extends Process implements Module  {
     $wrapper->add($set);
     $form->add($wrapper);
 
-    $this->addSubmit($form);
+    $this->addSubmit($form, 'mappingSubmit');
 
     return $form->render();
   }
 
+  private function renderUploadForm() {
+    $form = $this->modules->get('InputfieldForm');
+    $form->action = './';
+    $form->method = 'post';
+
+    $wrapper = new InputfieldWrapper();
+    $wrapper->attr('title', $this->_('Upload XML'));
+
+    $field = $this->modules->get('InputfieldFile');
+    $field->label = 'XML File';
+    $field->description = 'Upload your xml file';
+    $field->attr('name+id', 'xmlfile');
+    $field->destinationPath = $this->config->uploadTmpDir;
+    $field->extensions = 'xml';
+    $field->maxFiles = 1;
+    $field->maxFilesize = 2*1024*1024; // 2mb
+
+    $wrapper->add($field);
+    $form->add($wrapper);
+    $this->addSubmit($form, 'uploadSubmit');
+
+    $this->output .= $form->render();
+  }
+
+  private function renderViews() {
+    $this->output = '<dl class="nav">';
+    $this->output .= $this->renderPreconfigurationView();
+    $this->output .= $this->renderConfigurationView();
+    $this->output .= '</dl>';
+    $this->renderUploadForm();
+  }
+
   private function renderPreconfigurationView() {
-    $edit = $this->page->url . '?action=edit';
-    $output = '<h2>' . $this->_('Presets') . '</h2>';
-    $output .= '<dl class="nav">';
-
+    $edit = $this->page->url . '?action=edit-preconf';
     foreach ($this->parser->getPreconfiguration() as $config) {
-      $output .= "<dt><a class='label' href='$edit'>{$config['name']}</a></dt>";
-      $output .= "<dd><div class='actions'>{$config['val']} <a href='$edit'>{$this->_('Edit')}</a></div></dd>";
+      $this->output .= "<dt><a class='label' href='$edit'>{$config['name']}</a></dt>";
+      $this->output .= "<dd><div class='actions'>{$config['val']} <a href='$edit'>{$this->_('Edit')}</a></div></dd>";
     }
-    $output .= '</dl>';
+  }
 
-    return $output;
+  private function renderConfigurationView() {
+    $edit = $this->page->url . '?action=edit-conf';
+    $this->output .= "<dt><a class='label' href='$edit'>" . $this->_('Mapping') . "</a></dt>";
+    $this->output .= "<dd><div class='actions content'><table><tr><th>" . $this->_('Field') . "</th><th>" . $this->_('Mapping') . "</th></tr>";
+
+    foreach ($this->parser->getConfiguration() as $field => $config) {
+      $this->output .= "<tr><td style='padding-right: 1.5rem;'>{$field}</td><td>{$config}</td></tr>";
+    }
+
+    $this->output .= "</table><a href='$edit'>{$this->_('Edit')}</a></div></dd>";
   }
 
   private function renderPreconfigurationForm() {
     $form = $this->modules->get('InputfieldForm');
-    $form->attr('id', 'xmlparser');
     $form->action = './';
     $form->method = 'post';
 
@@ -180,7 +236,7 @@ class XmlParser extends Process implements Module  {
     $wrapper->add($set);
     $form->add($wrapper);
 
-    $this->addSubmit($form);
+    $this->addSubmit($form, 'preconfigSubmit');
 
     return $form->render();
   }
@@ -189,9 +245,9 @@ class XmlParser extends Process implements Module  {
    * Add a submit button, moved to a function so we don't have to do this several times
    *
    */
-  protected function addSubmit(InputfieldForm $form) {
+  protected function addSubmit(InputfieldForm $form, $name = 'submit') {
     $f = $this->modules->get('InputfieldSubmit');
-    $f->name = 'submit';
+    $f->name = $name;
     $f->value = $this->_('Submit');
     $form->add($f);
   }
