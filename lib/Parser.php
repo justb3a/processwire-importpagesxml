@@ -37,23 +37,6 @@ class Parser {
     $this->save();
   }
 
-  public function getPreconfiguration() {
-    return array(
-      array(
-        'name' => __('Template'),
-        'val' => wire('templates')->get($this->data['xpTemplate'])->name
-      ),
-      array(
-        'name' => __('Parent'),
-        'val' => wire('pages')->get($this->data['xpParent'])->title
-      )
-    );
-  }
-
-  public function getConfiguration() {
-    return json_decode($this->data['xpFields']);
-  }
-
   public function save() {
     wire('modules')->saveModuleConfigData(\XmlParser::MODULE_NAME, $this->data);
   }
