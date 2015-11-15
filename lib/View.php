@@ -4,6 +4,10 @@ namespace Jos;
 
 class View {
 
+  const MODE_0 = 'Do not update existing pages';
+  const MODE_1 = 'Delete and recreate pages';
+  const MODE_2 = 'Update existing pages';
+
  /**
   * construct
   */
@@ -11,10 +15,12 @@ class View {
     $this->data = wire('modules')->getModuleConfigData(\XmlParser::MODULE_NAME);
   }
 
-  protected function getForm() {
+  protected function getForm($isUpload = false) {
     $form = wire('modules')->get('InputfieldForm');
     $form->action = './';
     $form->method = 'post';
+
+    if ($isUpload) $form->attr('enctype', 'multipart/form-data');
 
     return $form;
   }
@@ -73,6 +79,10 @@ class View {
       array(
         'name' => __('Parent'),
         'val' => wire('pages')->get($this->data['xpParent'])->title
+      ),
+      array(
+        'name' => __('Update mode'),
+        'val' => constant('self::MODE_' . $this->data['xpMode'])
       )
     );
   }
@@ -135,17 +145,19 @@ class View {
     $this->output .= $this->renderPreconfigurationView();
     $this->output .= $this->renderConfigurationView();
     $this->output .= '</dl>';
-    $this->renderUploadForm();
 
     return $this->output;
   }
 
   protected function renderPreconfigurationView() {
     $edit = $this->page->url . '?action=edit-preconf';
+    $this->output .= "<dt><a class='label' href='$edit'>" . __('Configuration') . "</a></dt><dd><table>";
+
     foreach ($this->getPreconfiguration() as $config) {
-      $this->output .= "<dt><a class='label' href='$edit'>{$config['name']}</a></dt>";
-      $this->output .= "<dd><div class='actions'>{$config['val']} <a href='$edit'>" . __('Edit') . "</a></div></dd>";
+      $this->output .= "<tr><td style='padding-right: 1.5rem;'><a class='label' href='$edit'>{$config['name']}</a></td>";
+      $this->output .= "<td>{$config['val']}</td></tr>";
     }
+    $this->output .= "</table><div class='actions'><a href='$edit'>" . __('Edit') . "</a></div></dd>";
   }
 
   protected function renderConfigurationView() {
@@ -154,33 +166,31 @@ class View {
     $this->output .= "<dd><div class='actions content'><table><tr><th>" . __('Field') . "</th><th>" . __('Mapping') . "</th></tr>";
 
     foreach ($this->getConfiguration() as $field => $config) {
+      if (!$config) continue;
       $this->output .= "<tr><td style='padding-right: 1.5rem;'>{$field}</td><td>{$config}</td></tr>";
     }
 
     $this->output .= "</table><a href='$edit'>" . __('Edit') . "</a></div></dd>";
   }
 
-  protected function renderUploadForm() {
-    $form = $this->getForm();
+  public function renderUploadForm() {
+    $form = $this->getForm(true);
     $wrapper = $this->getWrapper(__('Upload XML'));
 
-    $field = $this->getField(
-      'InputfieldFile',
-      __('XML File'),
-      'xmlfile',
-      '',
-      __('Upload your xml file')
-    );
-    $field->destinationPath = $this->config->uploadTmpDir;
+    $field = wire('modules')->get('InputfieldFile');
     $field->extensions = 'xml';
     $field->maxFiles = 1;
-    $field->maxFilesize = 2*1024*1024; // 2mb
+    $field->descriptionRows = 0;
+    $field->overwrite = true;
+    $field->attr('id+name', 'xmlfile');
+    $field->label = __('XML File');
+    $field->description = __('Upload a XML file.');
 
     $wrapper->add($field);
     $form->add($wrapper);
     $this->addSubmit($form, 'uploadSubmit');
 
-    $this->output .= $form->render();
+    return $form;
   }
 
   public function renderPreconfigurationForm() {
@@ -213,7 +223,22 @@ class View {
       true
     );
 
-    $set->add($fieldTemplate)->add($fieldPage);
+    $fieldMode = $this->getField(
+      'InputfieldSelect',
+      __('Update Mode'),
+      'xpMode',
+      $this->data['xpMode'],
+      __('Existing pages will be determined using mappings that are a "unique target".'),
+      50,
+      true
+    );
+
+    $fieldMode
+      ->addOption(0, __(self::MODE_0))
+      ->addOption(1, __(self::MODE_1))
+      ->addOption(2, __(self::MODE_2));
+
+    $set->add($fieldTemplate)->add($fieldPage)->add($fieldMode);
     $wrapper->add($set);
     $form->add($wrapper);
     $this->addSubmit($form, 'preconfigSubmit');

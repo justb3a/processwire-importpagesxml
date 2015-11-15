@@ -101,13 +101,27 @@ class XmlParser extends Process implements Module  {
     // submit action `edit-conf`
     if ($this->input->post->mappingSubmit) $this->parser->setConfiguration();
 
-    // submit upload xml file
-    // if ($this->input->post->uploadSubmit)
-      // $this->uploadAndParseXMLOrSomethingLikeThat();
-      // @see: https://gist.github.com/somatonic/5236008
-
     // view
-    if (!$action) $this->output .= $this->view->render();
+    if (!$action) {
+      $this->output .= $this->view->render();
+      $form = $this->view->renderUploadForm();
+      $this->output .= $form->render();
+    }
+
+    // submit upload xml file
+    if ($this->input->post->uploadSubmit) {
+      $tempDir = wire('config')->paths->assets . "files/.tmp_uploads/";
+
+      $ul = new WireUpload('xmlfile');
+      $ul->setValidExtensions(array('xml'));
+      $ul->setMaxFiles(1);
+      $ul->setOverwrite(true);
+      $ul->setDestinationPath($tempDir);
+      $ul->setExtractArchives(false);
+      $ul->setLowercase(false);
+
+      $files = $ul->execute();
+    }
 
     return $this->output;
   }

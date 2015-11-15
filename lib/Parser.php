@@ -22,6 +22,7 @@ class Parser {
   public function setPreconfiguration() {
     if (wire('input')->post->xpTemplate) $this->data['xpTemplate'] = wire('input')->post->xpTemplate;
     if (wire('input')->post->xpParent) $this->data['xpParent'] = wire('input')->post->xpParent;
+    if (wire('input')->post->xpMode) $this->data['xpMode'] = wire('input')->post->xpMode;
     $this->save();
   }
 
