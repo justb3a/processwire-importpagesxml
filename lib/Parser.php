@@ -27,6 +27,9 @@ class Parser {
   }
 
   public function setConfiguration() {
+    $this->data['xpContext'] = wire('input')->post->xpContext;
+    $this->data['xpId'] = wire('input')->post->xpId;
+
     $template = wire('templates')->get($this->data['xpTemplate']);
     $toJson = array();
     foreach ($template->fields as $tfield) {
@@ -38,8 +41,65 @@ class Parser {
     $this->save();
   }
 
+  public function setXmlFile($form) {
+    // new WireUpload
+    $ul = new \WireUpload('xmlfile');
+    $ul->setValidExtensions(array('xml'));
+    $ul->setMaxFiles(1);
+    $ul->setOverwrite(true);
+    $ul->setDestinationPath($this->getUploadDir());
+    $ul->setLowercase(false);
+    $files = $ul->execute();
+
+    if (count($files)) {
+      $form->message(__('XML upload sucessfull'));
+
+      $this->data['xmlfile'] = reset($files);
+      $this->save();
+      wire('session')->redirect($this->page->url . '?action=parse');
+    } else {
+      $form->error(__('The file could not be uploaded, please try again.'));
+    }
+  }
+
   public function save() {
     wire('modules')->saveModuleConfigData(\XmlParser::MODULE_NAME, $this->data);
+  }
+
+  protected function getUploadDir() {
+    // create upload directory if it isn't there already
+    $uploadDir = wire('config')->paths->assets . 'files/' . $this->page->id . '/';
+    if (!is_dir($uploadDir)) {
+      if (!wireMkdir($uploadDir)) throw new WireException('No upload path!');
+    }
+
+    return $uploadDir;
+  }
+
+  public function parse() {
+    $xml = simplexml_load_file($this->getUploadDir() . $this->data['xmlfile']);
+    $context = $this->data['xpContext'];
+    $template = wire('templates')->get($this->data['xpTemplate']);
+    $conf = json_decode($this->data['xpFields']);
+
+    $counter = 0;
+    $items = $xml->xpath($context);
+    foreach ($items as $item) {
+      $page = new \Page;
+      $page->template = $this->data['xpTemplate'];
+      $page->parent = $this->data['xpParent'];
+      $page->save();
+
+      foreach ($template->fields as $tfield) {
+        if (!isset($conf->$tfield)) continue;
+        $page->$tfield = reset($item->xpath($conf->$tfield));
+      }
+
+      $page->save();
+      $counter++;
+    }
+
+    return $counter;
   }
 
 }

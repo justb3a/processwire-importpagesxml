@@ -99,23 +99,22 @@ class View {
 
     // field context
     $fieldC = $this->getField(
-      'InputfieldSelect',
+      'InputfieldText',
       __('Context'),
-      'xpcontext',
-      $values->xpcontext,
+      'xpContext',
+      $this->data['xpContext'],
       __('This is the base query, all other queries will run in this context.'),
       50,
       true
     );
-    $this->getAssignedFields($fieldC);
 
     // field title
     $fieldT = $this->getField(
       'InputfieldSelect',
       __('Title'),
-      'xptitle',
-      $values->xptitle,
-      __('Field Title is mandatory and considered unique: only one item per Title value will be created.'),
+      'xpId',
+      $this->data['xpId'],
+      __('Field Id is mandatory and considered unique: only one item per Title value will be created.'),
       50,
       true
     );
@@ -162,8 +161,13 @@ class View {
 
   protected function renderConfigurationView() {
     $edit = $this->page->url . '?action=edit-conf';
+    $fieldId = wire('fields')->get($this->data['xpId'])->name;
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Mapping') . "</a></dt>";
-    $this->output .= "<dd><div class='actions content'><table><tr><th>" . __('Field') . "</th><th>" . __('Mapping') . "</th></tr>";
+    $this->output .= "<dd><div class='actions content'>";
+    $this->output .= "<table><tr><th style='padding-right: 1.5rem;'>" . __('Context') . "</th><td>" . $this->data['xpContext'] . "</td></tr>";
+    $this->output .= "<tr><th style='padding-right: 1.5rem;'>" . __('Id') . "</th><td>" . $fieldId . "</td></tr></table>";
+
+    $this->output .= "<table><tr><th>" . __('Field') . "</th><th>" . __('Mapping') . "</th></tr>";
 
     foreach ($this->getConfiguration() as $field => $config) {
       if (!$config) continue;
@@ -171,6 +175,15 @@ class View {
     }
 
     $this->output .= "</table><a href='$edit'>" . __('Edit') . "</a></div></dd>";
+  }
+
+  public function renderUploadedFile() {
+    $output = '';
+    if ($this->data['xmlfile']) {
+      $output .= '<p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'] . '</p>';
+    }
+
+    return $output;
   }
 
   public function renderUploadForm() {

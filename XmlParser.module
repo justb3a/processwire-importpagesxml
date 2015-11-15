@@ -105,22 +105,19 @@ class XmlParser extends Process implements Module  {
     if (!$action) {
       $this->output .= $this->view->render();
       $form = $this->view->renderUploadForm();
+      $this->output .= $this->view->renderUploadedFile();
       $this->output .= $form->render();
+
+      // submit upload xml file
+      if ($this->input->post->uploadSubmit) {
+        $this->parser->setXmlFile($form);
+      }
     }
 
-    // submit upload xml file
-    if ($this->input->post->uploadSubmit) {
-      $tempDir = wire('config')->paths->assets . "files/.tmp_uploads/";
-
-      $ul = new WireUpload('xmlfile');
-      $ul->setValidExtensions(array('xml'));
-      $ul->setMaxFiles(1);
-      $ul->setOverwrite(true);
-      $ul->setDestinationPath($tempDir);
-      $ul->setExtractArchives(false);
-      $ul->setLowercase(false);
-
-      $files = $ul->execute();
+    // action `parse`
+    if ($action === 'parse') {
+      $count = $this->parser->parse();
+      $this->output .= sprintf(__("Created %d pages."), $count); 
     }
 
     return $this->output;
