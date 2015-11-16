@@ -117,7 +117,8 @@ class XmlParser extends Process implements Module  {
     // action `parse`
     if ($action === 'parse') {
       $count = $this->parser->parse();
-      $this->output .= sprintf(__("Created %d pages."), $count); 
+      $this->message(sprintf(__("Created %d pages."), $count));
+      wire('session')->redirect($this->page->url);
     }
 
     return $this->output;

@@ -90,12 +90,13 @@ class Parser {
       $page->parent = $this->data['xpParent'];
       $page->save();
 
+      $set = array();
       foreach ($template->fields as $tfield) {
-        if (!isset($conf->$tfield)) continue;
-        $page->$tfield = reset($item->xpath($conf->$tfield));
+        if (!($conf->{$tfield->name})) continue;
+        $set[$tfield->name] = reset($item->xpath($conf->{$tfield->name}))->__toString();
       }
 
-      $page->save();
+      $page->setAndSave($set);
       $counter++;
     }
 

@@ -153,7 +153,7 @@ class View {
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Configuration') . "</a></dt><dd><table>";
 
     foreach ($this->getPreconfiguration() as $config) {
-      $this->output .= "<tr><td style='padding-right: 1.5rem;'><a class='label' href='$edit'>{$config['name']}</a></td>";
+      $this->output .= "<tr><th style='padding-right: 1.5rem;'>{$config['name']}</th>";
       $this->output .= "<td>{$config['val']}</td></tr>";
     }
     $this->output .= "</table><div class='actions'><a href='$edit'>" . __('Edit') . "</a></div></dd>";
@@ -180,7 +180,8 @@ class View {
   public function renderUploadedFile() {
     $output = '';
     if ($this->data['xmlfile']) {
-      $output .= '<p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'] . '</p>';
+      $output .= '<div class="actions"><p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'];
+      $output .= '<a href="' . $this->page->url . '?action=parse" style="margin-left: 10px;">' . __('Reparse file')  . '</a></p></div>';
     }
 
     return $output;
