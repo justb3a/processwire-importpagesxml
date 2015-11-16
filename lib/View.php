@@ -4,14 +4,17 @@ namespace Jos;
 
 class View {
 
-  const MODE_0 = 'Do not update existing pages';
-  const MODE_1 = 'Delete and recreate pages';
-  const MODE_2 = 'Update existing pages';
+  const MODE_1 = 'Update existing pages';
+  const MODE_2 = 'Delete and recreate pages';
 
  /**
   * construct
   */
   public function __construct() {
+    $this->setData();
+  }
+
+  public function setData() {
     $this->data = wire('modules')->getModuleConfigData(\XmlParser::MODULE_NAME);
   }
 
@@ -248,7 +251,6 @@ class View {
     );
 
     $fieldMode
-      ->addOption(0, __(self::MODE_0))
       ->addOption(1, __(self::MODE_1))
       ->addOption(2, __(self::MODE_2));
 

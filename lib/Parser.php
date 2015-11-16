@@ -82,25 +82,68 @@ class Parser {
     $template = wire('templates')->get($this->data['xpTemplate']);
     $conf = json_decode($this->data['xpFields']);
 
-    $counter = 0;
+    $mode = (int)$this->data['xpMode'];
+
+    // delete pages
+    if ($mode === 2) $deletedCount = $this->deletePages();
+
+    $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // field track name
+    $fieldIdMapping = $conf->$fieldIdName; // @track
+
+    $createdCount = 0;
+    $updatedCount = 0;
+    $deletedCount = 0;
     $items = $xml->xpath($context);
     foreach ($items as $item) {
-      $page = new \Page;
-      $page->template = $this->data['xpTemplate'];
-      $page->parent = $this->data['xpParent'];
-      $page->save();
+      $idValue = reset($item->xpath($fieldIdMapping))->__toString();
+
+      // check whether a page with this identifier already exists
+      $page = wire('pages')->get("$fieldIdName=$idValue");
+
+      // if not, create new page
+      if (!$page->id) {
+        $page = new \Page;
+        $page->template = $this->data['xpTemplate'];
+        $page->parent = $this->data['xpParent'];
+        $page->save();
+        $createdCount++;
+      } else {
+        $updatedCount++;
+      }
 
       $set = array();
+
+      // set title and url
+      $titleExist = reset($item->xpath('title'));
+      if ($titleExist) {
+        $titleValue = $titleExist->__toString();
+        $set['title'] = $titleValue;
+        $set['name'] = wire('sanitizer')->pageNameTranslate($titleValue);
+      }
+
       foreach ($template->fields as $tfield) {
-        if (!($conf->{$tfield->name})) continue;
+        if (!($conf->{$tfield->name})) continue; // no value? continue
+        if ($tfield->name === 'title') continue; // equals title field? continue
         $set[$tfield->name] = reset($item->xpath($conf->{$tfield->name}))->__toString();
       }
 
       $page->setAndSave($set);
-      $counter++;
     }
 
-    return $counter;
+    return array('created' => $createdCount, 'deleted' => $deletedCount, 'updated' => $updatedCount);
+  }
+
+  protected function deletePages() {
+    $trashPages = wire('pages')->find('has_parent=' . $this->data['xpParent'] . ', template=' . $this->data['xpTemplate']);
+    $count = 0;
+    if ($trashPages->count() > 0) {
+      foreach ($trashPages as $trashPage) {
+        if ($trashPage instanceof \NullPage) continue;
+        wire('pages')->delete($trashPage, true);
+        $count++;
+      }
+    }
+    return $count;
   }
 
 }
