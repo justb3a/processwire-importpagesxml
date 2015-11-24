@@ -1,8 +1,15 @@
 <?php
 
-namespace Jos;
+namespace Jos\Lib;
 
 class Parser {
+
+  /**
+   * @field array Default config values
+   */
+  protected static $preConfigFields = array(
+    'xpTmplate', 'xpParent', 'xpMode', 'xpImgPath'
+  );
 
  /**
   * construct
@@ -20,9 +27,10 @@ class Parser {
   }
 
   public function setPreconfiguration() {
-    if (wire('input')->post->xpTemplate) $this->data['xpTemplate'] = wire('input')->post->xpTemplate;
-    if (wire('input')->post->xpParent) $this->data['xpParent'] = wire('input')->post->xpParent;
-    if (wire('input')->post->xpMode) $this->data['xpMode'] = wire('input')->post->xpMode;
+    foreach (self::$preConfigFields as $field) {
+      if (wire('input')->post->$field)
+        $this->data[$field] = wire('input')->post->$field;
+    }
     $this->save();
   }
 

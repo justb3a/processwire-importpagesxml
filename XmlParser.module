@@ -8,15 +8,15 @@
  *
  * @author Tabea David <td@justonestep.de>
  * @version 0.0.1
- * @copyright Copyright (c) 2015 
+ * @copyright Copyright (c) 2015
  * @see https://github.com/justonestep/processwire-xmlparser
  * @see http://www.processwire.com
  */
 
 require_once(wire('config')->paths->XmlParser . 'lib/Parser.php');
 require_once(wire('config')->paths->XmlParser . 'lib/View.php');
-use Jos\Parser;
-use Jos\View;
+use Jos\Lib\Parser;
+use Jos\Lib\View;
 
 /**
  * Class XmlParser
@@ -52,17 +52,6 @@ class XmlParser extends Process implements Module  {
     );
   }
 
-  /**
-   * @field array Default config values
-   */
-  protected static $defaults = array(
-    'xpTmplate' => '',
-    'xpParent' => '',
-    'xpFields' => ''
-  );
-
-  protected $output = '';
-
  /**
   * construct
   */
@@ -88,18 +77,20 @@ class XmlParser extends Process implements Module  {
   public function execute() {
     $action = $this->input->get->action;
 
-    // first usage OR action `edit-preconf`
-    if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') 
-      $this->output .= $this->view->renderPreconfigurationForm();
-
-    // action `edit-conf`
-    if ($action === 'edit-conf') $this->output .= $this->view->renderMappingForm();
-
     // submit action `edit-preconf`
     if ($this->input->post->preconfigSubmit) {
       $this->parser->setPreconfiguration();
       $this->view->setData();
     }
+
+    // first usage OR action `edit-preconf`
+    if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') {
+      $output .= $this->view->renderPreconfigurationForm();
+      return $output; // break, do not render additional output
+    }
+
+    // action `edit-conf`
+    if ($action === 'edit-conf') $output .= $this->view->renderMappingForm();
 
     // submit action `edit-conf`
     if ($this->input->post->mappingSubmit) {
@@ -109,10 +100,10 @@ class XmlParser extends Process implements Module  {
 
     // view
     if (!$action) {
-      $this->output .= $this->view->render();
+      $output .= $this->view->render();
       $form = $this->view->renderUploadForm();
-      $this->output .= $this->view->renderUploadedFile();
-      $this->output .= $form->render();
+      $output .= $this->view->renderUploadedFile();
+      $output .= $form->render();
 
       // submit upload xml file
       if ($this->input->post->uploadSubmit) {
@@ -129,7 +120,7 @@ class XmlParser extends Process implements Module  {
       wire('session')->redirect($this->page->url);
     }
 
-    return $this->output;
+    return $output;
   }
 
   /**
@@ -165,19 +156,19 @@ class XmlParser extends Process implements Module  {
 
   /**
    * Uninstall routine
-   * 
-   * This should return the site to the same state 
-   * it was in before the module was installed. 
+   *
+   * This should return the site to the same state
+   * it was in before the module was installed.
    */
   public function ___uninstall() {
     // delete the admin page
-    $moduleID = $this->modules->getModuleID($this); 
+    $moduleID = $this->modules->getModuleID($this);
     $selector = "template=admin, process=$moduleID, name=" . self::PAGE_NAME;
-    $page = $this->pages->get($selector); 
+    $page = $this->pages->get($selector);
 
     if ($page->id) {
       $page->delete();
-      $this->message("Deleted Page: {$page->path}"); 
+      $this->message("Deleted Page: {$page->path}");
     }
 
     // delete the xmlparser permission

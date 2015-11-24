@@ -1,6 +1,6 @@
 <?php
 
-namespace Jos;
+namespace Jos\Lib;
 
 class View {
 
@@ -86,6 +86,10 @@ class View {
       array(
         'name' => __('Update mode'),
         'val' => constant('self::MODE_' . $this->data['xpMode'])
+      ),
+      array(
+        'name' => __('Path to images'),
+        'val' => $this->data['xpImgPath']
       )
     );
   }
@@ -127,11 +131,17 @@ class View {
     $template = wire('templates')->get($this->data['xpTemplate']);
     $values = $this->getConfiguration();
     foreach ($template->fields as $tfield) {
-      // @todo: implement repeater handling
-      // @todo: implement image extra fields (description, tags..) handling
       $field = $this->getField('InputfieldText', $tfield->name, $tfield->name, $values->{$tfield->name});
       $field->size = 30;
       $set2->add($field);
+
+      if ((string)$tfield->type === FieldtypeImage) {
+        if ($tfield->descriptionRows > 0) {
+          $field = $this->getField('InputfieldText', $tfield->name . ' description', $tfield->name . 'Description', $values->{$tfield->name . 'Description'});
+          $field->size = 30;
+          $set2->add($field);
+        }
+      }
     }
 
     $set1->add($fieldC)->add($fieldT);
@@ -254,7 +264,16 @@ class View {
       ->addOption(1, __(self::MODE_1))
       ->addOption(2, __(self::MODE_2));
 
-    $set->add($fieldTemplate)->add($fieldPage)->add($fieldMode);
+    $fieldImgPath = $this->getField(
+      'InputfieldText',
+      __('Path to images'),
+      'xpImgPath',
+      $this->data['xpImgPath'],
+      __('Path where the images are placed, without ending `/`.'),
+      50
+    );
+
+    $set->add($fieldTemplate)->add($fieldPage)->add($fieldMode)->add($fieldImgPath);
     $wrapper->add($set);
     $form->add($wrapper);
     $this->addSubmit($form, 'preconfigSubmit');
