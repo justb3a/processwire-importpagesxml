@@ -135,9 +135,16 @@ class View {
       $field->size = 30;
       $set2->add($field);
 
-      if ((string)$tfield->type === FieldtypeImage) {
+      // case Image add description
+      if ($tfield->type->className === FieldtypeImage) {
         if ($tfield->descriptionRows > 0) {
-          $field = $this->getField('InputfieldText', $tfield->name . ' description', $tfield->name . 'Description', $values->{$tfield->name . 'Description'});
+          $descName = $tfield->name . 'Description';
+          $field = $this->getField(
+            'InputfieldText',
+            $descName,
+            $descName,
+            $values->$descName
+          );
           $field->size = 30;
           $set2->add($field);
         }

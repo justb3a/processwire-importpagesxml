@@ -8,7 +8,7 @@ class Parser {
    * @field array Default config values
    */
   protected static $preConfigFields = array(
-    'xpTmplate', 'xpParent', 'xpMode', 'xpImgPath'
+    'xpTemplate', 'xpParent', 'xpMode', 'xpImgPath'
   );
 
  /**
@@ -43,6 +43,12 @@ class Parser {
     foreach ($template->fields as $tfield) {
       $name = $tfield->name;
       $toJson[$name] = wire('input')->post->$name;
+
+      // case Image, save description as well
+      if ($tfield->type->className === FieldtypeImage && $tfield->descriptionRows > 0) {
+        $name = $name . 'Description';
+        $toJson[$name] = wire('input')->post->$name;
+      }
     }
 
     $this->data['xpFields'] = json_encode($toJson);
@@ -85,23 +91,25 @@ class Parser {
   }
 
   public function parse() {
-    $xml = simplexml_load_file($this->getUploadDir() . $this->data['xmlfile']);
-    $context = $this->data['xpContext'];
-    $template = wire('templates')->get($this->data['xpTemplate']);
-    $conf = json_decode($this->data['xpFields']);
-
-    $mode = (int)$this->data['xpMode'];
-
-    // delete pages
-    if ($mode === 2) $deletedCount = $this->deletePages();
-
-    $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // field track name
-    $fieldIdMapping = $conf->$fieldIdName; // @track
-
     $createdCount = 0;
     $updatedCount = 0;
     $deletedCount = 0;
-    $items = $xml->xpath($context);
+
+    // get xml file, configuration and image path
+    $xml = simplexml_load_file($this->getUploadDir() . $this->data['xmlfile']);
+    $conf = json_decode($this->data['xpFields']);
+    $imgPath = $this->data['xpImgPath'] . '/';
+
+    // get mode, update or delete/recreate pages
+    $mode = (int)$this->data['xpMode'];
+    if ($mode === 2) $deletedCount = $this->deletePages(); // delete pages
+
+    // get identifier
+    $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // unique template field, identifier
+    $fieldIdMapping = $conf->$fieldIdName; // unique field is mapped by ..
+
+    // execute
+    $items = $xml->xpath($this->data['xpContext']);
     foreach ($items as $item) {
       $idValue = reset($item->xpath($fieldIdMapping))->__toString();
 
@@ -121,7 +129,7 @@ class Parser {
 
       $set = array();
 
-      // set title and url
+      // set page title and url
       $titleExist = reset($item->xpath('title'));
       if ($titleExist) {
         $titleValue = $titleExist->__toString();
@@ -129,10 +137,37 @@ class Parser {
         $set['name'] = wire('sanitizer')->pageNameTranslate($titleValue);
       }
 
+      // loop through template fields
+      $template = wire('templates')->get($this->data['xpTemplate']);
       foreach ($template->fields as $tfield) {
-        if (!($conf->{$tfield->name})) continue; // no value? continue
-        if ($tfield->name === 'title') continue; // equals title field? continue
-        $set[$tfield->name] = reset($item->xpath($conf->{$tfield->name}))->__toString();
+        if (!($conf->{$tfield->name})) continue; // no value - skip
+        if ($tfield->name === 'title') continue; // equals title field - skip
+
+        // case Image
+        if ($tfield->type->className === FieldtypeImage) {
+          $isImg = $item->xpath($conf->{$tfield->name});
+
+          if (!$isImg) continue; // xml node `image` does not exist - skip
+          foreach ($isImg as $key => $img) {
+            // add image
+            $imgName = $imgPath . $img->__toString();
+            if (!file_exists($imgName)) continue; // file does not exist - skip
+            $page->{$tfield->name}->add($imgName);
+
+            // add description
+            if ($tfield->descriptionRows > 0) {
+              $descName = $tfield->name . 'Description';
+              $isDesc = $item->xpath($conf->$descName);
+              if (!isset($isDesc[$key])) continue; // xml node `image description` does not exist - skip
+              $desc = $isDesc[$key]->__toString();
+              $page->{$tfield->name}->last()->description = $desc;
+            }
+          }
+
+        } else {
+          // add all other fields
+          $set[$tfield->name] = reset($item->xpath($conf->{$tfield->name}))->__toString();
+        }
       }
 
       $page->setAndSave($set);
