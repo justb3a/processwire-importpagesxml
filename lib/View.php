@@ -148,18 +148,32 @@ class View {
       $field->size = 30;
       $set2->add($field);
 
-      // case Image add description
+      // case Image add description and tags
       if ($tfield->type->className === FieldtypeImage) {
+        // add description
         if ($tfield->descriptionRows > 0) {
           $descName = $tfield->name . 'Description';
-          $field = $this->getField(
+          $fieldDesc = $this->getField(
             'InputfieldText',
             $label . ' Description',
             $descName,
             $values->$descName
           );
-          $field->size = 30;
-          $set2->add($field);
+          $fieldDesc->size = 30;
+          $set2->add($fieldDesc);
+        }
+
+        // add tags
+        if ($tfield->useTags) {
+          $tagsName = $tfield->name . 'Tags';
+          $fieldTags = $this->getField(
+            'InputfieldText',
+            $label . ' Tags',
+            $tagsName,
+            $values->$tagsName
+          );
+          $fieldTags->size = 30;
+          $set2->add($fieldTags);
         }
       }
     }

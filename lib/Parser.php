@@ -44,10 +44,17 @@ class Parser {
       $name = $tfield->name;
       $toJson[$name] = wire('input')->post->$name;
 
-      // case Image, save description as well
-      if ($tfield->type->className === FieldtypeImage && $tfield->descriptionRows > 0) {
-        $name = $name . 'Description';
-        $toJson[$name] = wire('input')->post->$name;
+      // case Image, save description and tags as well
+      if ($tfield->type->className === FieldtypeImage) {
+        if ($tfield->descriptionRows > 0) {
+          $nameDesc = $name . 'Description';
+          $toJson[$nameDesc] = wire('input')->post->$nameDesc;
+        }
+
+        if ($tfield->useTags) {
+          $nameTags = $name . 'Tags';
+          $toJson[$nameTags] = wire('input')->post->$nameTags;
+        }
       }
     }
 
@@ -166,6 +173,15 @@ class Parser {
               if (!isset($isDesc[$key])) continue; // xml node `image description` does not exist - skip
               $desc = $isDesc[$key]->__toString();
               $page->{$tfield->name}->last()->description = $desc;
+            }
+
+            // add tags
+            if ($tfield->useTags) {
+              $tagsName = $tfield->name . 'Tags';
+              $isTagged = $item->xpath($conf->$tagsName);
+              if (!isset($isTagged[$key])) continue; // xml node `image description` does not exist - skip
+              $tag = $isTagged[$key]->__toString();
+              $page->{$tfield->name}->last()->tags = $tag;
             }
           }
 
