@@ -96,7 +96,9 @@ class Parser {
     $deletedCount = 0;
 
     // get xml file, configuration and image path
-    $xml = simplexml_load_file($this->getUploadDir() . $this->data['xmlfile']);
+    $xmlStringBase = file_get_contents($this->getUploadDir() . $this->data['xmlfile']);
+    $xmlString = str_replace('xmlns=', 'ns=', $xmlStringBase); // deactivate xml namespaces to be able to use xpath without prefixes
+    $xml = new \SimpleXMLElement($xmlString);
     $conf = json_decode($this->data['xpFields']);
     $imgPath = $this->data['xpImgPath'] . '/';
     $context = $this->data['xpContext'];
@@ -108,13 +110,6 @@ class Parser {
     // get identifier
     $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // unique template field, identifier
     $fieldIdMapping = $conf->$fieldIdName; // unique field is mapped by ..
-
-    // check if an namespace exist
-    $ns = $xml->getNameSpaces();
-    if (count($ns) > 0) {
-      $xml->registerXPathNamespace('ns', reset($ns));
-      $context = preg_replace('/^\/\//', '//ns:', $context);
-    }
 
     // execute
     $items = $xml->xpath($context);
@@ -139,7 +134,6 @@ class Parser {
 
       $set = array();
 
-      // set page title and url
       $titleExist = reset($item->xpath($conf->title));
       if ($titleExist) {
         $titleValue = $titleExist->__toString();
