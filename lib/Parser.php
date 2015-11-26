@@ -99,6 +99,7 @@ class Parser {
     $xml = simplexml_load_file($this->getUploadDir() . $this->data['xmlfile']);
     $conf = json_decode($this->data['xpFields']);
     $imgPath = $this->data['xpImgPath'] . '/';
+    $context = $this->data['xpContext'];
 
     // get mode, update or delete/recreate pages
     $mode = (int)$this->data['xpMode'];
@@ -108,13 +109,22 @@ class Parser {
     $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // unique template field, identifier
     $fieldIdMapping = $conf->$fieldIdName; // unique field is mapped by ..
 
+    // check if an namespace exist
+    $ns = $xml->getNameSpaces();
+    if (count($ns) > 0) {
+      $xml->registerXPathNamespace('ns', reset($ns));
+      $context = preg_replace('/^\/\//', '//ns:', $context);
+    }
+
     // execute
-    $items = $xml->xpath($this->data['xpContext']);
+    $items = $xml->xpath($context);
     foreach ($items as $item) {
-      $idValue = reset($item->xpath($fieldIdMapping))->__toString();
+      $idValue = reset($item->xpath($fieldIdMapping));
+
+      if (!$idValue) break; // id value doesn't exist
 
       // check whether a page with this identifier already exists
-      $page = wire('pages')->get("$fieldIdName=$idValue");
+      $page = wire('pages')->get("$fieldIdName={$idValue->__toString()}");
 
       // if not, create new page
       if (!$page->id) {

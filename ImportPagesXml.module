@@ -50,7 +50,7 @@ class ImportPagesXml extends Process implements Module  {
    */
   static public function getModuleInfo() {
     return array(
-      'title' => 'XML Parser',
+      'title' => 'Import Pages from XML',
       'version' => 001,
       'summary' => 'Import XML files to create ProcessWire pages.',
       'author' => 'Tabea David',
@@ -58,10 +58,10 @@ class ImportPagesXml extends Process implements Module  {
       'href' => 'https://github.com/justonestep/processwire-importpagesxml',
       'permission' => 'page-import-xml',
       'permissions' => array(
-        'page-import-xml' => 'Administer XML Parser'
+        'page-import-xml' => 'Administer import pages from XML'
       ),
       'singular' => true,
-      'autoload' => false,
+      'autoload' => true,
     );
   }
 
@@ -91,19 +91,19 @@ class ImportPagesXml extends Process implements Module  {
    * Display XML Parser Settings
    * This function is executed when a page with this Process assigned is accessed.
    */
-  public function execute() {
+  public function ___execute() {
     $action = $this->input->get->action;
-
-    // first usage OR action `edit-preconf`
-    if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') {
-      $output .= $this->view->renderPreconfigurationForm();
-      return $output; // break, do not render additional output
-    }
 
     // submit action `edit-preconf`
     if ($this->input->post->preconfigSubmit) {
       $this->parser->setPreconfiguration();
       $this->view->setData();
+    }
+
+    // first usage OR action `edit-preconf`
+    if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') {
+      $output .= $this->view->renderPreconfigurationForm();
+      return $output; // break, do not render additional output
     }
 
     // action `edit-conf`
