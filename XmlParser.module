@@ -65,8 +65,11 @@ class XmlParser extends Process implements Module  {
    *
    */
   public function init() {
-    if ($this->permissions->get(self::PERMISSION)->id && !$this->user->hasPermission(self::PERMISSION)) {
-      throw new WirePermissionException('You have no permission to use this module');
+    $p = $this->pages->get('template=admin, name=xml-parser');
+    if ($this->page->id === $p->id) {
+      if ($this->permissions->get(self::PERMISSION)->id && !$this->user->hasPermission(self::PERMISSION)) {
+        throw new WirePermissionException('You have no permission to use this module');
+      }
     }
   }
 
@@ -77,16 +80,16 @@ class XmlParser extends Process implements Module  {
   public function execute() {
     $action = $this->input->get->action;
 
-    // submit action `edit-preconf`
-    if ($this->input->post->preconfigSubmit) {
-      $this->parser->setPreconfiguration();
-      $this->view->setData();
-    }
-
     // first usage OR action `edit-preconf`
     if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') {
       $output .= $this->view->renderPreconfigurationForm();
       return $output; // break, do not render additional output
+    }
+
+    // submit action `edit-preconf`
+    if ($this->input->post->preconfigSubmit) {
+      $this->parser->setPreconfiguration();
+      $this->view->setData();
     }
 
     // action `edit-conf`

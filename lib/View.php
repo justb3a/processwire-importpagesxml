@@ -7,6 +7,13 @@ class View {
   const MODE_1 = 'Update existing pages';
   const MODE_2 = 'Delete and recreate pages';
 
+  /**
+   * @field array Default config values
+   */
+  protected static $fieldtypeExcludes = array(
+    'FieldtypeFieldsetTabOpen', 'FieldtypeFieldsetOpen', 'FieldtypeFieldsetClose'
+  );
+
  /**
   * construct
   */
@@ -131,7 +138,9 @@ class View {
     $template = wire('templates')->get($this->data['xpTemplate']);
     $values = $this->getConfiguration();
     foreach ($template->fields as $tfield) {
-      $field = $this->getField('InputfieldText', $tfield->name, $tfield->name, $values->{$tfield->name});
+      if (in_array($tfield->type->className, self::$fieldtypeExcludes)) continue; // skip some fields
+      $label = $tfield->label ? $tfield->label : $tfield->name;
+      $field = $this->getField('InputfieldText', $label, $tfield->name, $values->{$tfield->name});
       $field->size = 30;
       $set2->add($field);
 
@@ -141,7 +150,7 @@ class View {
           $descName = $tfield->name . 'Description';
           $field = $this->getField(
             'InputfieldText',
-            $descName,
+            $label . ' Description',
             $descName,
             $values->$descName
           );
