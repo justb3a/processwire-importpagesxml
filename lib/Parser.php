@@ -175,6 +175,20 @@ class Parser {
     return $set;
   }
 
+  protected function getXpath($xpath, $set) {
+    if (preg_match('/@(.*?)\=["\'](\$field_)(.*?)["\']/', $xpath, $matches)) {
+      do {
+        if (!isset($matches[3])) break; // no match found - break
+        $key = $matches[3];
+        if (!isset($set[$key])) break; // no related value was found - break
+        $val = $set[$key];
+        $xpath = preg_replace('/(\$field_)(.*?)(?=["\'])/', $val, $xpath);
+      } while (0);
+    }
+
+    return $xpath;
+  }
+
   public function parse() {
     $xml = $this->getSimpleXmlElement();
     $conf = json_decode($this->data['xpFields']);
@@ -201,7 +215,7 @@ class Parser {
         if ($tfield->name === 'title') continue; // equals title field - skip
 
         // check if there is an entry
-        $value = $item->xpath($conf->{$tfield->name});
+        $value = $item->xpath($this->getXpath($conf->{$tfield->name}, $set));
         if (!$value) continue; // no value in xml - skip
 
         // case Image
