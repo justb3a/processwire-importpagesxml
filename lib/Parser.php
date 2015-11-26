@@ -140,7 +140,7 @@ class Parser {
       $set = array();
 
       // set page title and url
-      $titleExist = reset($item->xpath('title'));
+      $titleExist = reset($item->xpath($conf->title));
       if ($titleExist) {
         $titleValue = $titleExist->__toString();
         $set['title'] = $titleValue;
@@ -153,12 +153,13 @@ class Parser {
         if (!($conf->{$tfield->name})) continue; // no value - skip
         if ($tfield->name === 'title') continue; // equals title field - skip
 
+        // check if there is an entry
+        $value = $item->xpath($conf->{$tfield->name});
+        if (!$value) continue; // no value in xml - skip
+
         // case Image
         if ($tfield->type->className === FieldtypeImage) {
-          $isImg = $item->xpath($conf->{$tfield->name});
-
-          if (!$isImg) continue; // xml node `image` does not exist - skip
-          foreach ($isImg as $key => $img) {
+          foreach ($value as $key => $img) {
             // add image
             $imgName = $imgPath . $img->__toString();
             if (!file_exists($imgName)) continue; // file does not exist - skip
@@ -176,7 +177,7 @@ class Parser {
 
         } else {
           // add all other fields
-          $set[$tfield->name] = reset($item->xpath($conf->{$tfield->name}))->__toString();
+          $set[$tfield->name] = reset($value)->__toString();
         }
       }
 
