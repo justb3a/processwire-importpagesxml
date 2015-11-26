@@ -9,23 +9,37 @@
  * @author Tabea David <td@justonestep.de>
  * @version 0.0.1
  * @copyright Copyright (c) 2015
- * @see https://github.com/justonestep/processwire-xmlparser
+ * @see https://github.com/justonestep/processwire-importpagesxml
  * @see http://www.processwire.com
  */
 
-require_once(wire('config')->paths->XmlParser . 'lib/Parser.php');
-require_once(wire('config')->paths->XmlParser . 'lib/View.php');
+require_once(wire('config')->paths->ImportPagesXml . 'lib/Parser.php');
+require_once(wire('config')->paths->ImportPagesXml . 'lib/View.php');
 use Jos\Lib\Parser;
 use Jos\Lib\View;
 
 /**
- * Class XmlParser
+ * Class ImportPagesXml
  */
-class XmlParser extends Process implements Module  {
+class ImportPagesXml extends Process implements Module  {
 
-  const PAGE_NAME = 'XML Parser';
-  const MODULE_NAME = 'XmlParser';
-  const PERMISSION = 'xmlparser';
+  /**
+   * Module name
+   *
+   */
+  const MODULE_NAME = 'ImportPagesXml';
+
+  /**
+   * Permission name
+   *
+   */
+  const PERMISSION = 'page-import-xml';
+
+  /**
+   * Name used for the page created in the admin
+   *
+   */
+  const ADMIN_PAGE_NAME = 'import-pages-xml';
 
   /**
    * Retrieves module meta data
@@ -38,17 +52,16 @@ class XmlParser extends Process implements Module  {
     return array(
       'title' => 'XML Parser',
       'version' => 001,
-      'summary' => '',
+      'summary' => 'Import XML files to create ProcessWire pages.',
       'author' => 'Tabea David',
       'icon' => 'th-list',
-      'href' => 'https://github.com/justonestep/processwire-xmlparser',
-      'useNavJSON' => true,
-      'permission' => 'xmlparser',
+      'href' => 'https://github.com/justonestep/processwire-importpagesxml',
+      'permission' => 'page-import-xml',
       'permissions' => array(
-        'xmlparser' => 'Administer XML Parser'
+        'page-import-xml' => 'Administer XML Parser'
       ),
-      'singular' => false,
-      'autoload' => true,
+      'singular' => true,
+      'autoload' => false,
     );
   }
 
@@ -65,7 +78,8 @@ class XmlParser extends Process implements Module  {
    *
    */
   public function init() {
-    $p = $this->pages->get('template=admin, name=xml-parser');
+    parent::init();
+    $page = $this->getInstalledPage();
     if ($this->page->id === $p->id) {
       if ($this->permissions->get(self::PERMISSION)->id && !$this->user->hasPermission(self::PERMISSION)) {
         throw new WirePermissionException('You have no permission to use this module');
@@ -132,18 +146,9 @@ class XmlParser extends Process implements Module  {
    */
   public function ___install() {
     // create XML Parser Admin page
-    $page = $this->pages->get('template=admin, name=' . self::PAGE_NAME);
-    if (!$page->id) {
-      $page = new Page();
-      $page->template = 'admin';
-      $page->parent = $this->pages->get($this->config->adminRootPageID);
-      $page->title = self::PAGE_NAME;
-      $page->name = self::PAGE_NAME;
-      $page->process = $this;
-      $page->save();
-
-      $this->message("Created Page: {$page->path}");
-    }
+    $page = $this->getInstalledPage();
+    $this->message("Installed to {$page->path}");
+    if ($page->parent->name == 'setup') $this->message("Click to your 'Setup' page to start using the XML Importer");
 
     // create permission to limit access to the module
     $permission = $this->permissions->get(self::PERMISSION);
@@ -158,6 +163,30 @@ class XmlParser extends Process implements Module  {
   }
 
   /**
+  * Return the page that this Process is installed on
+  *
+  */
+  protected function getInstalledPage() {
+    $admin = $this->pages->get($this->config->adminRootPageID);
+    $parent = $admin->child('name=setup');
+    if (!$parent->id) $parent = $admin;
+    $page = $parent->child('name=' . self::ADMIN_PAGE_NAME);
+
+    if (!$page->id) {
+      $page = new Page();
+      $page->parent = $parent;
+      $page->template = $this->templates->get('admin');
+      $page->name = self::ADMIN_PAGE_NAME;
+      $page->title = "Import Pages From XML";
+      $page->process = $this;
+      $page->sort = $parent->numChildren;
+      $page->save();
+    }
+
+    return $page;
+  }
+
+  /**
    * Uninstall routine
    *
    * This should return the site to the same state
@@ -165,16 +194,14 @@ class XmlParser extends Process implements Module  {
    */
   public function ___uninstall() {
     // delete the admin page
-    $moduleID = $this->modules->getModuleID($this);
-    $selector = "template=admin, process=$moduleID, name=" . self::PAGE_NAME;
-    $page = $this->pages->get($selector);
+    $page = $this->getInstalledPage();
 
     if ($page->id) {
       $page->delete();
       $this->message("Deleted Page: {$page->path}");
     }
 
-    // delete the xmlparser permission
+    // delete the permission
     $permission = $this->permissions->get(self::PERMISSION);
     if ($permission->id) {
       $permission->delete();

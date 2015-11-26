@@ -15,7 +15,7 @@ class Parser {
   * construct
   */
   public function __construct() {
-    $this->data = wire('modules')->getModuleConfigData(\XmlParser::MODULE_NAME);
+    $this->data = wire('modules')->getModuleConfigData(\ImportPagesXml::MODULE_NAME);
   }
 
   public function isPreconfigured() {
@@ -77,7 +77,7 @@ class Parser {
   }
 
   public function save() {
-    wire('modules')->saveModuleConfigData(\XmlParser::MODULE_NAME, $this->data);
+    wire('modules')->saveModuleConfigData(\ImportPagesXml::MODULE_NAME, $this->data);
   }
 
   protected function getUploadDir() {

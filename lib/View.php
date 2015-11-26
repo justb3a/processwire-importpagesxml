@@ -4,6 +4,10 @@ namespace Jos\Lib;
 
 class View {
 
+  /**
+   * Available update modes
+   *
+   */
   const MODE_1 = 'Update existing pages';
   const MODE_2 = 'Delete and recreate pages';
 
@@ -22,7 +26,7 @@ class View {
   }
 
   public function setData() {
-    $this->data = wire('modules')->getModuleConfigData(\XmlParser::MODULE_NAME);
+    $this->data = wire('modules')->getModuleConfigData(\ImportPagesXml::MODULE_NAME);
   }
 
   protected function getForm($isUpload = false) {
