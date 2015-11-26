@@ -11,6 +11,14 @@ class Parser {
     'xpTemplate', 'xpParent', 'xpMode', 'xpImgPath'
   );
 
+  /**
+   * counts for update, create and delete
+   *
+   */
+  protected $createdCount = 0;
+  protected $updatedCount = 0;
+  protected $deletedCount = 0;
+
  /**
   * construct
   */
@@ -97,22 +105,81 @@ class Parser {
     return $uploadDir;
   }
 
-  public function parse() {
-    $createdCount = 0;
-    $updatedCount = 0;
-    $deletedCount = 0;
+  protected function handleFieldtypeImage($value, $page, $tfield, $conf, $item) {
+    $imgPath = $this->data['xpImgPath'] . '/';
+    foreach ($value as $key => $img) {
+      // add image
+      $imgName = $imgPath . $img->__toString();
+      if (!file_exists($imgName)) continue; // file does not exist - skip
+      $page->{$tfield->name}->add($imgName);
 
-    // get xml file, configuration and image path
+      // add description
+      if ($tfield->descriptionRows > 0) {
+        $descName = $tfield->name . 'Description';
+        $isDesc = $item->xpath($conf->$descName);
+        if (!isset($isDesc[$key])) continue; // xml node `image description` does not exist - skip
+        $desc = $isDesc[$key]->__toString();
+        $page->{$tfield->name}->last()->description = $desc;
+      }
+
+      // add tags
+      if ($tfield->useTags) {
+        $tagsName = $tfield->name . 'Tags';
+        $isTagged = $item->xpath($conf->$tagsName);
+        if (!isset($isTagged[$key])) continue; // xml node `image description` does not exist - skip
+        $tag = $isTagged[$key]->__toString();
+        $page->{$tfield->name}->last()->tags = $tag;
+      }
+    }
+  }
+
+  protected function getSimpleXmlElement() {
     $xmlStringBase = file_get_contents($this->getUploadDir() . $this->data['xmlfile']);
     $xmlString = str_replace('xmlns=', 'ns=', $xmlStringBase); // deactivate xml namespaces to be able to use xpath without prefixes
-    $xml = new \SimpleXMLElement($xmlString);
-    $conf = json_decode($this->data['xpFields']);
-    $imgPath = $this->data['xpImgPath'] . '/';
-    $context = $this->data['xpContext'];
+    return new \SimpleXMLElement($xmlString);
+  }
 
+  protected function deletePagesDependingOnMode() {
     // get mode, update or delete/recreate pages
     $mode = (int)$this->data['xpMode'];
-    if ($mode === 2) $deletedCount = $this->deletePages(); // delete pages
+    if ($mode === 2) $this->deletedCount = $this->deletePages(); // delete pages
+  }
+
+  protected function getCurrentPage($selector) {
+    // check whether a page with this identifier already exists
+    $page = wire('pages')->get($selector);
+
+    // if not, create new page
+    if (!$page->id) {
+      $page = new \Page;
+      $page->template = $this->data['xpTemplate'];
+      $page->parent = $this->data['xpParent'];
+      $page->save();
+      $this->createdCount++;
+    } else {
+      $this->updatedCount++;
+    }
+
+    return $page;
+  }
+
+  protected function getPageTitleAndName($title) {
+    $set = array();
+    $containsTitle = reset($title);
+    if ($containsTitle) {
+      $titleValue = $containsTitle->__toString();
+      $set['title'] = $titleValue;
+      $set['name'] = wire('sanitizer')->pageNameTranslate($titleValue);
+    }
+
+    return $set;
+  }
+
+  public function parse() {
+    $xml = $this->getSimpleXmlElement();
+    $conf = json_decode($this->data['xpFields']);
+    $context = $this->data['xpContext'];
+    $this->deletePagesDependingOnMode();
 
     // get identifier
     $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // unique template field, identifier
@@ -122,31 +189,10 @@ class Parser {
     $items = $xml->xpath($context);
     foreach ($items as $item) {
       $idValue = reset($item->xpath($fieldIdMapping));
-
       if (!$idValue) break; // id value doesn't exist
 
-      // check whether a page with this identifier already exists
-      $page = wire('pages')->get("$fieldIdName={$idValue->__toString()}");
-
-      // if not, create new page
-      if (!$page->id) {
-        $page = new \Page;
-        $page->template = $this->data['xpTemplate'];
-        $page->parent = $this->data['xpParent'];
-        $page->save();
-        $createdCount++;
-      } else {
-        $updatedCount++;
-      }
-
-      $set = array();
-
-      $titleExist = reset($item->xpath($conf->title));
-      if ($titleExist) {
-        $titleValue = $titleExist->__toString();
-        $set['title'] = $titleValue;
-        $set['name'] = wire('sanitizer')->pageNameTranslate($titleValue);
-      }
+      $page = $this->getCurrentPage("$fieldIdName={$idValue->__toString()}");
+      $set = $this->getPageTitleAndName($item->xpath($conf->title)); // array containing page values
 
       // loop through template fields
       $template = wire('templates')->get($this->data['xpTemplate']);
@@ -160,31 +206,7 @@ class Parser {
 
         // case Image
         if ($tfield->type->className === FieldtypeImage) {
-          foreach ($value as $key => $img) {
-            // add image
-            $imgName = $imgPath . $img->__toString();
-            if (!file_exists($imgName)) continue; // file does not exist - skip
-            $page->{$tfield->name}->add($imgName);
-
-            // add description
-            if ($tfield->descriptionRows > 0) {
-              $descName = $tfield->name . 'Description';
-              $isDesc = $item->xpath($conf->$descName);
-              if (!isset($isDesc[$key])) continue; // xml node `image description` does not exist - skip
-              $desc = $isDesc[$key]->__toString();
-              $page->{$tfield->name}->last()->description = $desc;
-            }
-
-            // add tags
-            if ($tfield->useTags) {
-              $tagsName = $tfield->name . 'Tags';
-              $isTagged = $item->xpath($conf->$tagsName);
-              if (!isset($isTagged[$key])) continue; // xml node `image description` does not exist - skip
-              $tag = $isTagged[$key]->__toString();
-              $page->{$tfield->name}->last()->tags = $tag;
-            }
-          }
-
+          $this->handleFieldtypeImage($value, $page, $tfield, $conf, $item);
         } else {
           // add all other fields
           $set[$tfield->name] = reset($value)->__toString();
@@ -194,7 +216,7 @@ class Parser {
       $page->setAndSave($set);
     }
 
-    return array('created' => $createdCount, 'deleted' => $deletedCount, 'updated' => $updatedCount);
+    return array('created' => $this->createdCount, 'deleted' => $this->deletedCount, 'updated' => $this->updatedCount);
   }
 
   protected function deletePages() {
