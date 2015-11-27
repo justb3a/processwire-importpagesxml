@@ -377,7 +377,7 @@ class View {
    */
   public function renderPreconfigurationForm() {
     $form = $this->getForm();
-    $form->description = __("Step 1: Preconfiguration Settings");
+    $form->description = __("Step 1: Configuration Settings");
     $wrapper = $this->getWrapper(__('Overview'));
     $set = $this->getFieldset(__('Settings'));
 
