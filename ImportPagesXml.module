@@ -1,0 +1,232 @@
+<?php
+
+/**
+ * ProcessWire XML Parser
+ *
+ * ProcessWire 2.x
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * @author Tabea David <td@justonestep.de>
+ * @version 0.0.1
+ * @copyright Copyright (c) 2015
+ * @see https://github.com/justonestep/processwire-importpagesxml
+ * @see http://www.processwire.com
+ */
+
+require_once(wire('config')->paths->ImportPagesXml . 'lib/Parser.php');
+require_once(wire('config')->paths->ImportPagesXml . 'lib/View.php');
+use Jos\Lib\Parser;
+use Jos\Lib\View;
+
+/**
+ * Class ImportPagesXml
+ *
+ * Basic module
+ *
+ * @package ImportPagesXml
+ * @author Tabea David <td@justonestep.de>
+ */
+class ImportPagesXml extends Process implements Module  {
+
+  /**
+   * Module name
+   *
+   */
+  const MODULE_NAME = 'ImportPagesXml';
+
+  /**
+   * Permission name
+   *
+   */
+  const PERMISSION = 'page-import-xml';
+
+  /**
+   * Name used for the page created in the admin
+   *
+   */
+  const ADMIN_PAGE_NAME = 'import-pages-xml';
+
+  /**
+   * Retrieves module meta data
+   * Implementation of the Module interface
+   *
+   * @return array
+   * @see http://processwire.com/apigen/class-Module.html
+   */
+  static public function getModuleInfo() {
+    return array(
+      'title' => 'Import Pages from XML',
+      'version' => 001,
+      'summary' => 'Import XML files to create ProcessWire pages.',
+      'author' => 'Tabea David',
+      'icon' => 'th-list',
+      'href' => 'https://github.com/justonestep/processwire-importpagesxml',
+      'permission' => 'page-import-xml',
+      'permissions' => array(
+        'page-import-xml' => 'Administer import pages from XML'
+      ),
+      'singular' => true,
+      'autoload' => true,
+    );
+  }
+
+ /**
+  * construct
+  */
+  public function __construct() {
+    $this->parser = new Parser;
+    $this->view = new View;
+  }
+
+  /**
+   * Initialize the module
+   *
+   */
+  public function init() {
+    parent::init();
+  }
+
+  /**
+   * Display XML Parser Settings
+   * This function is executed when a page with this Process assigned is accessed.
+   */
+  public function ___execute() {
+    $action = $this->input->get->action;
+
+    // do not allow edit (pre-) config for non superusers
+    if (preg_match('/edit/', $action) && !$this->user->isSuperuser()) {
+      wire('session')->redirect($this->page->url);
+    }
+
+    // submit action `edit-preconf`
+    if ($this->input->post->preconfigSubmit) {
+      $this->parser->setPreconfiguration();
+      $this->view->setData();
+    }
+
+    // first usage OR action `edit-preconf`
+    if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') {
+      $output .= $this->view->renderPreconfigurationForm();
+      return $output; // break, do not render additional output
+    }
+
+    // action `edit-conf`
+    if ($action === 'edit-conf') $output .= $this->view->renderMappingForm();
+
+    // submit action `edit-conf`
+    if ($this->input->post->mappingSubmit) {
+      $this->parser->setConfiguration();
+      $this->view->setData();
+    }
+
+    // view
+    if (!$action) {
+      $output = $this->view->renderHeadline(); // headline
+      if ($this->user->isSuperuser()) $output .= $this->view->render();
+      $form = $this->view->renderUploadForm();
+      $output .= $this->view->renderUploadedFile();
+      $output .= $form->render();
+
+      // submit upload xml file
+      if ($this->input->post->uploadSubmit) {
+        $this->parser->setXmlFile($form);
+      }
+    }
+
+    // action `parse`
+    if ($action === 'parse') {
+      $counts = $this->parser->parse();
+      $this->logAndSendMessage($counts);
+      wire('session')->redirect($this->page->url);
+    }
+
+    return $output;
+  }
+
+  /**
+   * Write log message and inform the user
+   *
+   * @param array $counts
+   *
+   */
+  protected function logAndSendMessage($counts) {
+    $log = $this->log();
+    foreach (array('deleted', 'created', 'updated') as $type) {
+      if ($counts[$type] || $type === 'created') {
+        $message = sprintf(__(ucfirst($type) . " %d pages."), $counts[$type]);
+        $this->message($message);
+        $log->save('modules', $message);
+      }
+    }
+  }
+
+  /**
+   * Install routine
+   * A new page with this Process module assigned is created.
+   *
+   */
+  public function ___install() {
+    // create XML Parser Admin page
+    $page = $this->getInstalledPage();
+    $this->message("Installed to {$page->path}");
+    if ($page->parent->name == 'setup') $this->message("Click to your 'Setup' page to start using the XML Importer");
+
+    // create permission to limit access to the module
+    $permission = $this->permissions->get(self::PERMISSION);
+    if (!$permission->id) {
+      $permission = new Permission();
+      $permission->name = self::PERMISSION;
+      $permission->title = $this->_('Edit XML Parser');
+      $permission->save();
+
+      $this->message('Created new permission: ' . self::PERMISSION);
+    }
+  }
+
+  /**
+  * Return the page that this Process is installed on
+  *
+  */
+  protected function getInstalledPage() {
+    $admin = $this->pages->get($this->config->adminRootPageID);
+    $parent = $admin->child('name=setup');
+    if (!$parent->id) $parent = $admin;
+    $page = $parent->child('name=' . self::ADMIN_PAGE_NAME);
+
+    if (!$page->id) {
+      $page = new Page();
+      $page->parent = $parent;
+      $page->template = $this->templates->get('admin');
+      $page->name = self::ADMIN_PAGE_NAME;
+      $page->title = "Import Pages From XML";
+      $page->process = $this;
+      $page->sort = $parent->numChildren;
+      $page->save();
+    }
+
+    return $page;
+  }
+
+  /**
+   * Uninstall routine
+   *
+   * This should return the site to the same state
+   * it was in before the module was installed.
+   *
+   */
+  public function ___uninstall() {
+    // delete the admin page
+    $page = $this->getInstalledPage();
+    if ($page->id) {
+      $page->delete();
+      $this->message("Deleted Page: {$page->path}");
+    }
+
+    // delete the permission
+    $permission = $this->permissions->get(self::PERMISSION);
+    if ($permission->id) {
+      $permission->delete();
+      $this->message("Deleted Permission: " . self::PERMISSION);
+    }
+  }
+}
