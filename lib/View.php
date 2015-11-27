@@ -301,7 +301,7 @@ class View {
       $this->output .= "<tr><th style='padding-right: 1.5rem;'>{$config['name']}</th>";
       $this->output .= "<td>{$config['val']}</td></tr>";
     }
-    $this->output .= "</table><a href='$edit' class='ui-button'>" . __('Edit') . "</a></dd>";
+    $this->output .= "</table><a href='$edit' class='ui-button  ui-button-text'>" . __('Edit') . "</a></dd>";
   }
 
   /**
@@ -324,7 +324,7 @@ class View {
       $this->output .= "<tr><td style='padding-right: 1.5rem;'>{$field}</td><td>{$config}</td></tr>";
     }
 
-    $this->output .= "</table><a href='$edit' class='ui-button'>" . __('Edit') . "</a></dd>";
+    $this->output .= "</table><a href='$edit' class='ui-button  ui-button-text'>" . __('Edit') . "</a></dd>";
   }
 
   /**
@@ -337,7 +337,7 @@ class View {
     $output = '';
     if ($this->data['xmlfile']) {
       $output .= '<p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'];
-      $output .= '<a href="' . $this->page->url . '?action=parse" style="margin-left: 10px;" class="ui-button">' . __('Reparse file')  . '</a></p>';
+      $output .= '<a href="' . $this->page->url . '?action=parse" style="margin-left: 10px;" class="ui-button  ui-button-text">' . __('Reparse file')  . '</a></p>';
     }
 
     return $output;
