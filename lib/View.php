@@ -2,6 +2,14 @@
 
 namespace Jos\Lib;
 
+/**
+ * Class View
+ *
+ * Handles the views
+ *
+ * @package ImportPagesXml
+ * @author Tabea David <td@justonestep.de>
+ */
 class View {
 
   /**
@@ -25,10 +33,31 @@ class View {
     $this->setData();
   }
 
+  /**
+   * Get module config data
+   *
+   */
   public function setData() {
     $this->data = wire('modules')->getModuleConfigData(\ImportPagesXml::MODULE_NAME);
   }
 
+  /**
+   * Render headline
+   *
+   * @return string
+   *
+   */
+  public function renderHeadline() {
+    return '<h2>Import Pages From XML</h2><hr>';
+  }
+
+  /**
+   * Get basic form
+   *
+   * @param boolean $isUpload
+   * @return \InputfieldForm
+   *
+   */
   protected function getForm($isUpload = false) {
     $form = wire('modules')->get('InputfieldForm');
     $form->action = './';
@@ -39,6 +68,13 @@ class View {
     return $form;
   }
 
+  /**
+   * Get basic wrapper
+   *
+   * @param string $title
+   * @return \InputfieldWrapper
+   *
+   */
   protected function getWrapper($title) {
     $wrapper = new \InputfieldWrapper();
     $wrapper->attr('title', $title);
@@ -46,6 +82,13 @@ class View {
     return $wrapper;
   }
 
+  /**
+   *  Get basic fieldset
+   *
+   *  @param string $label
+   *  @return \InputfieldFieldset
+   *
+   */
   protected function getFieldset($label) {
     $set = wire('modules')->get('InputfieldFieldset');
     $set->label = $label;
@@ -55,6 +98,10 @@ class View {
 
   /**
    * Add a submit button, moved to a function so we don't have to do this several times
+   *
+   * @param \InputfieldForm $form
+   * @param string $name
+   *
    */
   protected function addSubmit(\InputfieldForm $form, $name = 'submit') {
     $f = wire('modules')->get('InputfieldSubmit');
@@ -63,6 +110,19 @@ class View {
     $form->add($f);
   }
 
+  /**
+   * Get basic field
+   *
+   * @param string $type
+   * @param string $label
+   * @param string $name
+   * @param string $value
+   * @param string $description
+   * @param integer $columnWidth
+   * @param boolean $required
+   * @return \Field
+   *
+   */
   protected function getField($type, $label, $name, $value, $description = '', $columnWidth = 50, $required = false) {
     $field = wire('modules')->get($type);
     $field->label = $label;
@@ -75,6 +135,13 @@ class View {
     return $field;
   }
 
+  /**
+   * Get assigned fields
+   *
+   * @param \Field $field
+   * @return \Field $field
+   *
+   */
   protected function getAssignedFields($field) {
     $template = wire('templates')->get($this->data['xpTemplate']);
     foreach ($template->fields as $tfield) {
@@ -84,6 +151,12 @@ class View {
     return $field;
   }
 
+  /**
+   * Get pre-configuration
+   *
+   * @return array
+   *
+   */
   protected function getPreconfiguration() {
     return array(
       array(
@@ -105,12 +178,25 @@ class View {
     );
   }
 
+  /**
+   * Get configuration
+   *
+   * @return array
+   *
+   */
   protected function getConfiguration() {
     return json_decode($this->data['xpFields']);
   }
 
+  /**
+   * Render mapping form - step 2
+   *
+   * @return string
+   *
+   */
   public function renderMappingForm() {
     $form = $this->getForm();
+    $form->description = __("Step 2: Mapping Settings");
     $wrapper = $this->getWrapper(__('XPATH Parser Settings'));
     $set1 = $this->getFieldset(__('XPATH Parser Settings'));
     $set2 = $this->getFieldset(__('Mapping'));
@@ -186,6 +272,12 @@ class View {
     return $form->render();
   }
 
+  /**
+   * Render configuration views
+   *
+   * @return string
+   *
+   */
   public function render() {
     $this->output = '<dl class="nav">';
     $this->output .= $this->renderPreconfigurationView();
@@ -195,6 +287,12 @@ class View {
     return $this->output;
   }
 
+  /**
+   * Render pre-configuration
+   *
+   * @return string
+   *
+   */
   protected function renderPreconfigurationView() {
     $edit = $this->page->url . '?action=edit-preconf';
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Configuration') . "</a></dt><dd><table>";
@@ -203,15 +301,20 @@ class View {
       $this->output .= "<tr><th style='padding-right: 1.5rem;'>{$config['name']}</th>";
       $this->output .= "<td>{$config['val']}</td></tr>";
     }
-    $this->output .= "</table><div class='actions'><a href='$edit'>" . __('Edit') . "</a></div></dd>";
+    $this->output .= "</table><a href='$edit' class='ui-button'>" . __('Edit') . "</a></dd>";
   }
 
+  /**
+   * Render configuration view
+   *
+   * @return string
+   *
+   */
   protected function renderConfigurationView() {
     $edit = $this->page->url . '?action=edit-conf';
     $fieldId = wire('fields')->get($this->data['xpId'])->name;
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Mapping') . "</a></dt>";
-    $this->output .= "<dd><div class='actions content'>";
-    $this->output .= "<table><tr><th style='padding-right: 1.5rem;'>" . __('Context') . "</th><td>" . $this->data['xpContext'] . "</td></tr>";
+    $this->output .= "<dd><table><tr><th style='padding-right: 1.5rem;'>" . __('Context') . "</th><td>" . $this->data['xpContext'] . "</td></tr>";
     $this->output .= "<tr><th style='padding-right: 1.5rem;'>" . __('Id') . "</th><td>" . $fieldId . "</td></tr></table>";
 
     $this->output .= "<table><tr><th>" . __('Field') . "</th><th>" . __('Mapping') . "</th></tr>";
@@ -221,19 +324,31 @@ class View {
       $this->output .= "<tr><td style='padding-right: 1.5rem;'>{$field}</td><td>{$config}</td></tr>";
     }
 
-    $this->output .= "</table><a href='$edit'>" . __('Edit') . "</a></div></dd>";
+    $this->output .= "</table><a href='$edit' class='ui-button'>" . __('Edit') . "</a></dd>";
   }
 
+  /**
+   * Render reparse uploaded XML file
+   *
+   * @return $output
+   *
+   */
   public function renderUploadedFile() {
     $output = '';
     if ($this->data['xmlfile']) {
-      $output .= '<div class="actions"><p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'];
-      $output .= '<a href="' . $this->page->url . '?action=parse" style="margin-left: 10px;">' . __('Reparse file')  . '</a></p></div>';
+      $output .= '<p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'];
+      $output .= '<a href="' . $this->page->url . '?action=parse" style="margin-left: 10px;" class="ui-button">' . __('Reparse file')  . '</a></p>';
     }
 
     return $output;
   }
 
+  /**
+   * Render upload form
+   *
+   * @return \InputfieldForm
+   *
+   */
   public function renderUploadForm() {
     $form = $this->getForm(true);
     $wrapper = $this->getWrapper(__('Upload XML'));
@@ -254,8 +369,15 @@ class View {
     return $form;
   }
 
+  /**
+   * Render pre-configuration form
+   *
+   * @return \InputfieldForm
+   *
+   */
   public function renderPreconfigurationForm() {
     $form = $this->getForm();
+    $form->description = __("Step 1: Preconfiguration Settings");
     $wrapper = $this->getWrapper(__('Overview'));
     $set = $this->getFieldset(__('Settings'));
 

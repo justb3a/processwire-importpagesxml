@@ -20,6 +20,11 @@ use Jos\Lib\View;
 
 /**
  * Class ImportPagesXml
+ *
+ * Basic module
+ *
+ * @package ImportPagesXml
+ * @author Tabea David <td@justonestep.de>
  */
 class ImportPagesXml extends Process implements Module  {
 
@@ -79,12 +84,6 @@ class ImportPagesXml extends Process implements Module  {
    */
   public function init() {
     parent::init();
-    $page = $this->getInstalledPage();
-    if ($this->page->id === $p->id) {
-      if ($this->permissions->get(self::PERMISSION)->id && !$this->user->hasPermission(self::PERMISSION)) {
-        throw new WirePermissionException('You have no permission to use this module');
-      }
-    }
   }
 
   /**
@@ -93,6 +92,11 @@ class ImportPagesXml extends Process implements Module  {
    */
   public function ___execute() {
     $action = $this->input->get->action;
+
+    // do not allow edit (pre-) config for non superusers
+    if (preg_match('/edit/', $action) && !$this->user->isSuperuser()) {
+      wire('session')->redirect($this->page->url);
+    }
 
     // submit action `edit-preconf`
     if ($this->input->post->preconfigSubmit) {
@@ -117,7 +121,8 @@ class ImportPagesXml extends Process implements Module  {
 
     // view
     if (!$action) {
-      $output .= $this->view->render();
+      $output = $this->view->renderHeadline(); // headline
+      if ($this->user->isSuperuser()) $output .= $this->view->render();
       $form = $this->view->renderUploadForm();
       $output .= $this->view->renderUploadedFile();
       $output .= $form->render();
@@ -130,10 +135,8 @@ class ImportPagesXml extends Process implements Module  {
 
     // action `parse`
     if ($action === 'parse') {
-      $count = $this->parser->parse();
-      if ($count['deleted']) $this->message(sprintf(__("Deleted %d pages."), $count['deleted']));
-      $this->message(sprintf(__("Created %d pages."), $count['created']));
-      if ($count['updated'])$this->message(sprintf(__("Updated %d pages."), $count['updated']));
+      $counts = $this->parser->parse();
+      $this->logAndSendMessage($counts);
       wire('session')->redirect($this->page->url);
     }
 
@@ -141,8 +144,26 @@ class ImportPagesXml extends Process implements Module  {
   }
 
   /**
+   * Write log message and inform the user
+   *
+   * @param array $counts
+   *
+   */
+  protected function logAndSendMessage($counts) {
+    $log = $this->log();
+    foreach (array('deleted', 'created', 'updated') as $type) {
+      if ($counts[$type] || $type === 'created') {
+        $message = sprintf(__(ucfirst($type) . " %d pages."), $counts[$type]);
+        $this->message($message);
+        $log->save('modules', $message);
+      }
+    }
+  }
+
+  /**
    * Install routine
    * A new page with this Process module assigned is created.
+   *
    */
   public function ___install() {
     // create XML Parser Admin page
@@ -191,11 +212,11 @@ class ImportPagesXml extends Process implements Module  {
    *
    * This should return the site to the same state
    * it was in before the module was installed.
+   *
    */
   public function ___uninstall() {
     // delete the admin page
     $page = $this->getInstalledPage();
-
     if ($page->id) {
       $page->delete();
       $this->message("Deleted Page: {$page->path}");

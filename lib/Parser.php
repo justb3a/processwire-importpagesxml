@@ -2,6 +2,14 @@
 
 namespace Jos\Lib;
 
+/**
+ * Class Parser
+ *
+ * Performs parser tasks
+ *
+ * @package ImportPagesXml
+ * @author Tabea David <td@justonestep.de>
+ */
 class Parser {
 
   /**
@@ -26,6 +34,12 @@ class Parser {
     $this->data = wire('modules')->getModuleConfigData(\ImportPagesXml::MODULE_NAME);
   }
 
+  /**
+   * Checks wheter this module is already pre-configured
+   *
+   * @return boolean
+   *
+   */
   public function isPreconfigured() {
     $state = false;
     if ($this->data['xpTemplate'] && $this->data['xpParent']) {
@@ -34,6 +48,10 @@ class Parser {
     return $state;
   }
 
+  /**
+   * Save pre configuration
+   *
+   */
   public function setPreconfiguration() {
     foreach (self::$preConfigFields as $field) {
       if (wire('input')->post->$field)
@@ -42,6 +60,10 @@ class Parser {
     $this->save();
   }
 
+  /**
+   * Save configuration
+   *
+   */
   public function setConfiguration() {
     $this->data['xpContext'] = wire('input')->post->xpContext;
     $this->data['xpId'] = wire('input')->post->xpId;
@@ -70,6 +92,12 @@ class Parser {
     $this->save();
   }
 
+  /**
+   * WireUpload xml file
+   *
+   * @param \InputfieldForm $form
+   *
+   */
   public function setXmlFile($form) {
     // new WireUpload
     $ul = new \WireUpload('xmlfile');
@@ -91,12 +119,21 @@ class Parser {
     }
   }
 
-  public function save() {
+  /**
+   * Save module config data
+   *
+   */
+  protected function save() {
     wire('modules')->saveModuleConfigData(\ImportPagesXml::MODULE_NAME, $this->data);
   }
 
+  /**
+   * Get and create upload directory if it isn't there already
+   *
+   * @return string
+   *
+   */
   protected function getUploadDir() {
-    // create upload directory if it isn't there already
     $uploadDir = wire('config')->paths->assets . 'files/' . $this->page->id . '/';
     if (!is_dir($uploadDir)) {
       if (!wireMkdir($uploadDir)) throw new WireException('No upload path!');
@@ -105,6 +142,16 @@ class Parser {
     return $uploadDir;
   }
 
+  /**
+   * XML parse - handle Fieltype Image
+   *
+   * @param array $value
+   * @param Page $page
+   * @param Field $tfield
+   * @param object $conf
+   * @param array $item
+   *
+   */
   protected function handleFieldtypeImage($value, $page, $tfield, $conf, $item) {
     $imgPath = $this->data['xpImgPath'] . '/';
     foreach ($value as $key => $img) {
@@ -133,18 +180,35 @@ class Parser {
     }
   }
 
+  /**
+   * Get SimpleXMLElement
+   *
+   * @return SimpleXMLElement
+   *
+   */
   protected function getSimpleXmlElement() {
     $xmlStringBase = file_get_contents($this->getUploadDir() . $this->data['xmlfile']);
     $xmlString = str_replace('xmlns=', 'ns=', $xmlStringBase); // deactivate xml namespaces to be able to use xpath without prefixes
     return new \SimpleXMLElement($xmlString);
   }
 
+  /**
+   * Delete matching pages depending on mode
+   *
+   */
   protected function deletePagesDependingOnMode() {
     // get mode, update or delete/recreate pages
     $mode = (int)$this->data['xpMode'];
     if ($mode === 2) $this->deletedCount = $this->deletePages(); // delete pages
   }
 
+  /**
+   * Get current page
+   *
+   * @param string $selector
+   * @return Page
+   *
+   */
   protected function getCurrentPage($selector) {
     // check whether a page with this identifier already exists
     $page = wire('pages')->get($selector);
@@ -163,6 +227,13 @@ class Parser {
     return $page;
   }
 
+  /**
+   * Get page title as well as name
+   *
+   * @param array $title
+   * @return array
+   *
+   */
   protected function getPageTitleAndName($title) {
     $set = array();
     $containsTitle = reset($title);
@@ -175,6 +246,13 @@ class Parser {
     return $set;
   }
 
+  /**
+   * Get xpath - check for variables and substitute them
+   *
+   * @param string $xpath
+   * @param array $set
+   * @return $string
+   */
   protected function getXpath($xpath, $set) {
     if (preg_match('/@(.*?)\=["\'](\$field_)(.*?)["\']/', $xpath, $matches)) {
       do {
@@ -189,6 +267,12 @@ class Parser {
     return $xpath;
   }
 
+  /**
+   * Parse XML
+   *
+   * @return array
+   *
+   */
   public function parse() {
     $xml = $this->getSimpleXmlElement();
     $conf = json_decode($this->data['xpFields']);
@@ -233,6 +317,12 @@ class Parser {
     return array('created' => $this->createdCount, 'deleted' => $this->deletedCount, 'updated' => $this->updatedCount);
   }
 
+  /**
+   * Delete pages
+   *
+   * @return integer
+   *
+   */
   protected function deletePages() {
     $trashPages = wire('pages')->find('has_parent=' . $this->data['xpParent'] . ', template=' . $this->data['xpTemplate']);
     $count = 0;
