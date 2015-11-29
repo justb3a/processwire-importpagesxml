@@ -48,7 +48,7 @@ class View {
    *
    */
   public function renderHeadline() {
-    return '<h2>Import Pages From XML</h2><hr>';
+    return '<h2>' . __('Import Pages From XML') . '</h2><hr>';
   }
 
   /**
@@ -294,7 +294,7 @@ class View {
    *
    */
   protected function renderPreconfigurationView() {
-    $edit = $this->page->url . '?action=edit-preconf';
+    $edit = wire('page')->url . '?action=edit-preconf';
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Configuration') . "</a></dt><dd><table>";
 
     foreach ($this->getPreconfiguration() as $config) {
@@ -311,7 +311,7 @@ class View {
    *
    */
   protected function renderConfigurationView() {
-    $edit = $this->page->url . '?action=edit-conf';
+    $edit = wire('page')->url . '?action=edit-conf';
     $fieldId = wire('fields')->get($this->data['xpId'])->name;
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Mapping') . "</a></dt>";
     $this->output .= "<dd><table><tr><th style='padding-right: 1.5rem;'>" . __('Context') . "</th><td>" . $this->data['xpContext'] . "</td></tr>";
@@ -337,7 +337,7 @@ class View {
     $output = '';
     if ($this->data['xmlfile']) {
       $output .= '<p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'];
-      $output .= '<a href="' . $this->page->url . '?action=parse" style="margin-left: 10px;" class="ui-button  ui-button-text">' . __('Reparse file')  . '</a></p>';
+      $output .= '<a href="' . wire('page')->url . '?action=parse" style="margin-left: 10px;" class="ui-button  ui-button-text">' . __('Reparse file')  . '</a></p>';
     }
 
     return $output;

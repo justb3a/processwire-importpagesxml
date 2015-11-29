@@ -35,7 +35,7 @@ Use `$field_<fieldname>` to match the desired value.
 </songs>
 ```
 
-* context: `\\song`
+* context: `//song`
 * fields: title, track, artist_id, artist_name, artist_mail
 * **artist_id** must be placed before artist_name and artist_mail to be able to use that value
 * `//contact[@id="$field_artist_id"]/@name` `//contact[@id="$field_artist_id"]/@mail`
