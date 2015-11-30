@@ -53,7 +53,7 @@ Use `$field_<fieldname>` to match the desired value.
 ```
 
 * context: `//song`
-* fields order: title, track, contact_id, contact_name, contact_mail
+* field order: title, track, contact_id, contact_name, contact_mail
 * `contact_id` must be placed before `contact_name` and `contact_mail`
 * first get contact_id : `title/@contact_id`
 * then use that value as relation : `//contact[@id="$field_artist_id"]/@name` as well as `//contact[@id="$field_artist_id"]/@mail`
