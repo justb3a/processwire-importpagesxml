@@ -6,12 +6,33 @@ This ProcessWire module allows you to import and parse XML files (using xpath) t
 
 ## Settings
 
-After successfull installation go to `Setup > Import Pages From XML` page to start using the XML Importer.
+After successfull installation go to `Setup > Import Pages From XML` to start using the XML Importer.
+
+This module does not support all available field types. Nevertheless, I've refrained from restricting the supported field types because many of them should work by default.
+
+Tested and working: 
+
+* image including tag and description support
+* select
+* text
+* textarea
+* integer
+
+The following field types will be ignored:
+
+* FieldsetTabOpen
+* FieldsetOpen
+* FieldsetClose
+
+Not working:
+
+* file
+* repeater
 
 ## Xpath Mappings
 
-If you need a xpath mapping to be related to another field make sure that that field is placed before that one which needs the relation.
-You can access and use any value / field which is ordered before.
+If you want to take advantage of references between fields in your xpath mapping then make sure the fields you're relating to are placed before the ones which need the relations.
+You can access and use any values/fields that you placed earlier in your file.
 Use `$field_<fieldname>` to match the desired value.
 
 **Example**
@@ -20,22 +41,24 @@ Use `$field_<fieldname>` to match the desired value.
 <?xml version="1.0" encoding="UTF-8"?>
 
 <songs>
-    <song dateplayed="2011-07-24 19:40:26" track="2">
-        <title artist_id="1">I left my heart on Europa</title>
+    <song track="2">
+        <title contact_id="1">Some song title</title>
     </song>
-    <song dateplayed="2011-07-24 19:27:42" track="7">
-        <title artist_id="2">Oh Ganymede</title>
+    <song track="7">
+        <title contact_id="2">Just another song title</title>
     </song>
-    <song dateplayed="2011-07-24 19:23:50" track="12">
-        <title artist_id="3">Kallichore</title>
-    </song>
-    <contact id="1" name="Ship of Nomads" mail="info@test.org"/>
-    <contact id="2" name="Beefachanga" mail="info@exam.ple"/>
-    <contact id="3" name="Jewitt K. Sheppard" mail="info@some.com"/>
+    <contact id="1" name="Sesmallbos" mail="info@test.org"/>
+    <contact id="2" name="Sebigbos" mail="info@exam.ple"/>
 </songs>
 ```
 
 * context: `//song`
-* fields: title, track, artist_id, artist_name, artist_mail
-* **artist_id** must be placed before artist_name and artist_mail to be able to use that value
-* `//contact[@id="$field_artist_id"]/@name` `//contact[@id="$field_artist_id"]/@mail`
+* fields order: title, track, contact_id, contact_name, contact_mail
+* **contact_id** must be placed before `contact_name` and `contact_mail`
+* first get contact_id : `title/@contact_id`
+* then use that value as relation : `//contact[@id="$field_artist_id"]/@name` `//contact[@id="$field_artist_id"]/@mail`
+
+## Further readings
+
+* [Runs XPath query on XML data](http://php.net/manual/de/simplexmlelement.xpath.php)
+* [XML and XPath](http://www.w3schools.com/xml/xml_xpath.asp)
