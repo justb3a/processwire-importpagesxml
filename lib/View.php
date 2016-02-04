@@ -275,13 +275,14 @@ class View {
   /**
    * Render configuration views
    *
+   * @param boolean $isAdmin
    * @return string
    *
    */
-  public function render() {
+  public function render($isAdmin) {
     $this->output = '<dl class="nav">';
-    $this->output .= $this->renderPreconfigurationView();
-    $this->output .= $this->renderConfigurationView();
+    $this->output .= $this->renderPreconfigurationView($isAdmin);
+    if ($isAdmin) $this->output .= $this->renderConfigurationView();
     $this->output .= '</dl>';
 
     return $this->output;
@@ -290,14 +291,16 @@ class View {
   /**
    * Render pre-configuration
    *
+   * @param boolean $isAdmin
    * @return string
    *
    */
-  protected function renderPreconfigurationView() {
+  protected function renderPreconfigurationView($isAdmin) {
     $edit = wire('page')->url . '?action=edit-preconf';
     $this->output .= "<dt><a class='label' href='$edit'>" . __('Configuration') . "</a></dt><dd><table>";
 
-    foreach ($this->getPreconfiguration() as $config) {
+    foreach ($this->getPreconfiguration() as $count => $config) {
+      if (!$isAdmin && $count !== count($config) + 1) continue;
       $this->output .= "<tr><th style='padding-right: 1.5rem;'>{$config['name']}</th>";
       $this->output .= "<td>{$config['val']}</td></tr>";
     }
@@ -372,53 +375,57 @@ class View {
   /**
    * Render pre-configuration form
    *
+   * @param boolean $isAdmin
    * @return \InputfieldForm
-   *
    */
-  public function renderPreconfigurationForm() {
+  public function renderPreconfigurationForm($isAdmin) {
     $form = $this->getForm();
     $form->description = __("Step 1: Configuration Settings");
     $wrapper = $this->getWrapper(__('Overview'));
     $set = $this->getFieldset(__('Settings'));
 
-    $fieldTemplate = $this->getField(
-      'InputfieldSelect',
-      __('Template'),
-      'xpTemplate',
-      $this->data['xpTemplate'],
-      '',
-      50,
-      true
-    );
+    if ($isAdmin) {
+      $fieldTemplate = $this->getField(
+        'InputfieldSelect',
+        __('Template'),
+        'xpTemplate',
+        $this->data['xpTemplate'],
+        '',
+        50,
+        true
+      );
 
-    foreach (wire('templates') as $template) {
-      if ($template->flags & \Template::flagSystem) continue;
-      $fieldTemplate->addOption($template->id, (!empty($template->label) ? $template->label : $template->name));
+      foreach (wire('templates') as $template) {
+        if ($template->flags & \Template::flagSystem) continue;
+        $fieldTemplate->addOption($template->id, (!empty($template->label) ? $template->label : $template->name));
+      }
+
+      $fieldPage = $this->getField(
+        'InputfieldPageListSelect',
+        __('Parent Page'),
+        'xpParent',
+        $this->data['xpParent'],
+        '',
+        50,
+        true
+      );
+
+      $fieldMode = $this->getField(
+        'InputfieldSelect',
+        __('Update Mode'),
+        'xpMode',
+        $this->data['xpMode'],
+        __('Existing pages will be determined using mappings that are a "unique target".'),
+        50,
+        true
+      );
+
+      $fieldMode
+        ->addOption(1, __(self::MODE_1))
+        ->addOption(2, __(self::MODE_2));
+
+      $set->add($fieldTemplate)->add($fieldPage)->add($fieldMode);
     }
-
-    $fieldPage = $this->getField(
-      'InputfieldPageListSelect',
-      __('Parent Page'),
-      'xpParent',
-      $this->data['xpParent'],
-      '',
-      50,
-      true
-    );
-
-    $fieldMode = $this->getField(
-      'InputfieldSelect',
-      __('Update Mode'),
-      'xpMode',
-      $this->data['xpMode'],
-      __('Existing pages will be determined using mappings that are a "unique target".'),
-      50,
-      true
-    );
-
-    $fieldMode
-      ->addOption(1, __(self::MODE_1))
-      ->addOption(2, __(self::MODE_2));
 
     $fieldImgPath = $this->getField(
       'InputfieldText',
@@ -429,7 +436,7 @@ class View {
       50
     );
 
-    $set->add($fieldTemplate)->add($fieldPage)->add($fieldMode)->add($fieldImgPath);
+    $set->add($fieldImgPath);
     $wrapper->add($set);
     $form->add($wrapper);
     $this->addSubmit($form, 'preconfigSubmit');

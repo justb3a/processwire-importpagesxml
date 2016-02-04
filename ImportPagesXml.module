@@ -7,7 +7,7 @@
  * Licensed under GNU/GPL v2, see LICENSE.TXT
  *
  * @author Tabea David <td@justonestep.de>
- * @version 0.0.2
+ * @version 0.0.3
  * @copyright Copyright (c) 2015
  * @see https://github.com/justonestep/processwire-importpagesxml
  * @see http://www.processwire.com
@@ -56,7 +56,7 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
   static public function getModuleInfo() {
     return array(
       'title' => 'Import Pages from XML',
-      'version' => 002,
+      'version' => 003,
       'summary' => 'Import XML files to create ProcessWire pages.',
       'author' => 'Tabea David',
       'icon' => 'th-list',
@@ -102,9 +102,10 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
    */
   public function ___execute() {
     $action = $this->input->get->action;
+    $output = '';
 
     // do not allow edit (pre-) config for non superusers
-    if (preg_match('/edit/', $action) && !$this->user->isSuperuser()) {
+    if ($action !== 'edit-preconf' && preg_match('/edit/', $action) && !$this->user->isSuperuser()) {
       wire('session')->redirect($this->page->url);
     }
 
@@ -116,7 +117,7 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
 
     // first usage OR action `edit-preconf`
     if (!$this->parser->isPreconfigured() || $action === 'edit-preconf') {
-      $output .= $this->view->renderPreconfigurationForm();
+      $output .= $this->view->renderPreconfigurationForm($this->user->isSuperuser());
       return $output; // break, do not render additional output
     }
 
@@ -132,7 +133,7 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
     // view
     if (!$action) {
       $output = $this->view->renderHeadline(); // headline
-      if ($this->user->isSuperuser()) $output .= $this->view->render();
+      $output .= $this->view->render($this->user->isSuperuser());
       $form = $this->view->renderUploadForm();
       $output .= $this->view->renderUploadedFile();
       $output .= $form->render();
