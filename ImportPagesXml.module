@@ -135,7 +135,8 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
       $output = $this->view->renderHeadline(); // headline
       $output .= $this->view->render($this->user->isSuperuser());
       $form = $this->view->renderUploadForm();
-      $output .= $this->view->renderUploadedFile();
+
+      if ($this->user->isSuperuser()) $output .= $this->view->renderUploadedFile();
       $output .= $form->render();
 
       // submit upload xml file
