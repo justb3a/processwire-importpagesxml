@@ -2,6 +2,11 @@
 
 namespace Jos\Lib;
 
+use \ProcessWire\ImportPagesXML;
+use \ProcessWire\InputfieldWrapper;
+use \ProcessWire\InputfieldForm;
+use \ProcessWire\Template;
+
 /**
  * Class View
  *
@@ -10,7 +15,7 @@ namespace Jos\Lib;
  * @package ImportPagesXml
  * @author Tabea David <td@justonestep.de>
  */
-class View {
+class View extends \ProcessWire\Wire {
 
   /**
    * Available update modes
@@ -38,7 +43,7 @@ class View {
    *
    */
   public function setData() {
-    $this->data = wire('modules')->getModuleConfigData(\ImportPagesXml::MODULE_NAME);
+    $this->data = $this->wire('modules')->getModuleConfigData(ImportPagesXml::MODULE_NAME);
   }
 
   /**
@@ -48,18 +53,18 @@ class View {
    *
    */
   public function renderHeadline() {
-    return '<h2>' . __('Import Pages From XML') . '</h2><hr>';
+    return '<h2>' . $this->_('Import Pages From XML') . '</h2><hr>';
   }
 
   /**
    * Get basic form
    *
    * @param boolean $isUpload
-   * @return \InputfieldForm
+   * @return InputfieldForm
    *
    */
   protected function getForm($isUpload = false) {
-    $form = wire('modules')->get('InputfieldForm');
+    $form = $this->wire('modules')->get('InputfieldForm');
     $form->action = './';
     $form->method = 'post';
 
@@ -76,7 +81,7 @@ class View {
    *
    */
   protected function getWrapper($title) {
-    $wrapper = new \InputfieldWrapper();
+    $wrapper = new InputfieldWrapper();
     $wrapper->attr('title', $title);
 
     return $wrapper;
@@ -90,7 +95,7 @@ class View {
    *
    */
   protected function getFieldset($label) {
-    $set = wire('modules')->get('InputfieldFieldset');
+    $set = $this->wire('modules')->get('InputfieldFieldset');
     $set->label = $label;
 
     return $set;
@@ -103,10 +108,10 @@ class View {
    * @param string $name
    *
    */
-  protected function addSubmit(\InputfieldForm $form, $name = 'submit') {
-    $f = wire('modules')->get('InputfieldSubmit');
+  protected function addSubmit(InputfieldForm $form, $name = 'submit') {
+    $f = $this->wire('modules')->get('InputfieldSubmit');
     $f->name = $name;
-    $f->value = __('Submit');
+    $f->value = $this->_('Submit');
     $form->add($f);
   }
 
@@ -124,7 +129,7 @@ class View {
    *
    */
   protected function getField($type, $label, $name, $value, $description = '', $columnWidth = 50, $required = false) {
-    $field = wire('modules')->get($type);
+    $field = $this->wire('modules')->get($type);
     $field->label = $label;
     $field->description = $description;
     $field->name = $name;
@@ -143,7 +148,7 @@ class View {
    *
    */
   protected function getAssignedFields($field) {
-    $template = wire('templates')->get($this->data['xpTemplate']);
+    $template = $this->wire('templates')->get($this->data['xpTemplate']);
     foreach ($template->fields as $tfield) {
       $field->addOption($tfield->id, $tfield->name);
     }
@@ -160,19 +165,19 @@ class View {
   protected function getPreconfiguration() {
     return array(
       array(
-        'name' => __('Template'),
-        'val' => wire('templates')->get($this->data['xpTemplate'])->name
+        'name' => $this->_('Template'),
+        'val' => $this->wire('templates')->get($this->data['xpTemplate'])->name
       ),
       array(
-        'name' => __('Parent'),
-        'val' => wire('pages')->get($this->data['xpParent'])->title
+        'name' => $this->_('Parent'),
+        'val' => $this->wire('pages')->get($this->data['xpParent'])->title
       ),
       array(
-        'name' => __('Update mode'),
+        'name' => $this->_('Update mode'),
         'val' => constant('self::MODE_' . $this->data['xpMode'])
       ),
       array(
-        'name' => __('Path to images'),
+        'name' => $this->_('Path to images'),
         'val' => $this->data['xpImgPath']
       )
     );
@@ -185,7 +190,18 @@ class View {
    *
    */
   protected function getConfiguration() {
-    return json_decode($this->data['xpFields']);
+    return json_decode($this->getData('xpFields'));
+  }
+
+  /**
+   * Get data if exists
+   *
+   * @param string $key
+   * @return string
+   *
+   */
+  protected function getData($key) {
+    return array_key_exists($key, $this->data) ? $this->data[$key] : '';
   }
 
   /**
@@ -196,18 +212,18 @@ class View {
    */
   public function renderMappingForm() {
     $form = $this->getForm();
-    $form->description = __("Step 2: Mapping Settings");
-    $wrapper = $this->getWrapper(__('XPATH Parser Settings'));
-    $set1 = $this->getFieldset(__('XPATH Parser Settings'));
-    $set2 = $this->getFieldset(__('Mapping'));
+    $form->description = $this->_("Step 2: Mapping Settings");
+    $wrapper = $this->getWrapper($this->_('XPATH Parser Settings'));
+    $set1 = $this->getFieldset($this->_('XPATH Parser Settings'));
+    $set2 = $this->getFieldset($this->_('Mapping'));
 
     // field context
     $fieldC = $this->getField(
       'InputfieldText',
-      __('Context'),
+      $this->_('Context'),
       'xpContext',
-      $this->data['xpContext'],
-      __('This is the base query, all other queries will run in this context.'),
+      $this->getData('xpContext'),
+      $this->_('This is the base query, all other queries will run in this context.'),
       50,
       true
     );
@@ -215,51 +231,54 @@ class View {
     // field title
     $fieldT = $this->getField(
       'InputfieldSelect',
-      __('Title'),
+      $this->_('Title'),
       'xpId',
-      $this->data['xpId'],
-      __('Field Id is mandatory and considered unique: only one item per Title value will be created.'),
+      $this->getData('xpId'),
+      $this->_('Field Id is mandatory and considered unique: only one item per Title value will be created.'),
       50,
       true
     );
     $this->getAssignedFields($fieldT);
 
     // mapping fields
-    $template = wire('templates')->get($this->data['xpTemplate']);
+    $template = $this->wire('templates')->get($this->data['xpTemplate']);
     $values = $this->getConfiguration();
-    foreach ($template->fields as $tfield) {
-      if (in_array($tfield->type->className, self::$fieldtypeExcludes)) continue; // skip some fields
-      $label = $tfield->label ? $tfield->label : $tfield->name;
-      $field = $this->getField('InputfieldText', $label, $tfield->name, $values->{$tfield->name});
-      $field->size = 30;
-      $set2->add($field);
 
-      // case Image add description and tags
-      if ($tfield->type->className === FieldtypeImage) {
-        // add description
-        if ($tfield->descriptionRows > 0) {
-          $descName = $tfield->name . 'Description';
-          $fieldDesc = $this->getField(
-            'InputfieldText',
-            $label . ' Description',
-            $descName,
-            $values->$descName
-          );
-          $fieldDesc->size = 30;
-          $set2->add($fieldDesc);
-        }
+    if (is_object($this->getConfiguration())) {
+      foreach ($template->fields as $tfield) {
+        if (in_array($tfield->type->className, self::$fieldtypeExcludes)) continue; // skip some fields
+        $label = $tfield->label ? $tfield->label : $tfield->name;
+        $field = $this->getField('InputfieldText', $label, $tfield->name, $values->{$tfield->name});
+        $field->size = 30;
+        $set2->add($field);
 
-        // add tags
-        if ($tfield->useTags) {
-          $tagsName = $tfield->name . 'Tags';
-          $fieldTags = $this->getField(
-            'InputfieldText',
-            $label . ' Tags',
-            $tagsName,
-            $values->$tagsName
-          );
-          $fieldTags->size = 30;
-          $set2->add($fieldTags);
+        // case Image add description and tags
+        if ($tfield->type->className === 'FieldtypeImage') {
+          // add description
+          if ($tfield->descriptionRows > 0) {
+            $descName = $tfield->name . 'Description';
+            $fieldDesc = $this->getField(
+              'InputfieldText',
+              $label . ' Description',
+              $descName,
+              $values->$descName
+            );
+            $fieldDesc->size = 30;
+            $set2->add($fieldDesc);
+          }
+
+          // add tags
+          if ($tfield->useTags) {
+            $tagsName = $tfield->name . 'Tags';
+            $fieldTags = $this->getField(
+              'InputfieldText',
+              $label . ' Tags',
+              $tagsName,
+              $values->$tagsName
+            );
+            $fieldTags->size = 30;
+            $set2->add($fieldTags);
+          }
         }
       }
     }
@@ -296,15 +315,15 @@ class View {
    *
    */
   protected function renderPreconfigurationView($isAdmin) {
-    $edit = wire('page')->url . '?action=edit-preconf';
-    $this->output .= "<dt><a class='label' href='$edit'>" . __('Configuration') . "</a></dt><dd><table>";
+    $edit = $this->wire('page')->url . '?action=edit-preconf';
+    $this->output .= "<dt><a class='label' href='$edit'>" . $this->_('Configuration') . "</a></dt><dd><table>";
 
     foreach ($this->getPreconfiguration() as $count => $config) {
       if (!$isAdmin && $count !== count($config) + 1) continue;
       $this->output .= "<tr><th style='padding-right: 1.5rem;'>{$config['name']}</th>";
       $this->output .= "<td>{$config['val']}</td></tr>";
     }
-    $this->output .= "</table><a href='$edit' class='ui-button  ui-button-text'>" . __('Edit') . "</a></dd>";
+    $this->output .= "</table><a href='$edit' class='ui-button  ui-button-text'>" . $this->_('Edit') . "</a></dd>";
   }
 
   /**
@@ -314,20 +333,22 @@ class View {
    *
    */
   protected function renderConfigurationView() {
-    $edit = wire('page')->url . '?action=edit-conf';
-    $fieldId = wire('fields')->get($this->data['xpId'])->name;
-    $this->output .= "<dt><a class='label' href='$edit'>" . __('Mapping') . "</a></dt>";
-    $this->output .= "<dd><table><tr><th style='padding-right: 1.5rem;'>" . __('Context') . "</th><td>" . $this->data['xpContext'] . "</td></tr>";
-    $this->output .= "<tr><th style='padding-right: 1.5rem;'>" . __('Id') . "</th><td>" . $fieldId . "</td></tr></table>";
+    $edit = $this->wire('page')->url . '?action=edit-conf';
+    $fieldId = $this->getData('xpId') ?  $this->wire('fields')->get($this->data['xpId'])->name : '';
 
-    $this->output .= "<table><tr><th>" . __('Field') . "</th><th>" . __('Mapping') . "</th></tr>";
+    $this->output .= "<dt><a class='label' href='$edit'>" . $this->_('Mapping') . "</a></dt>";
+    $this->output .= "<dd><table><tr><th style='padding-right: 1.5rem;'>" . $this->_('Context') . "</th><td>" . $this->getData('xpContext') . "</td></tr>";
+    $this->output .= "<tr><th style='padding-right: 1.5rem;'>" . $this->_('Id') . "</th><td>" . $fieldId . "</td></tr></table>";
+    $this->output .= "<table><tr><th>" . $this->_('Field') . "</th><th>" . $this->_('Mapping') . "</th></tr>";
 
-    foreach ($this->getConfiguration() as $field => $config) {
-      if (!$config) continue;
-      $this->output .= "<tr><td style='padding-right: 1.5rem;'>{$field}</td><td>{$config}</td></tr>";
+    if (is_object($this->getConfiguration())) {
+      foreach ($this->getConfiguration() as $field => $config) {
+        if (!$config) continue;
+        $this->output .= "<tr><td style='padding-right: 1.5rem;'>{$field}</td><td>{$config}</td></tr>";
+      }
     }
 
-    $this->output .= "</table><a href='$edit' class='ui-button  ui-button-text'>" . __('Edit') . "</a></dd>";
+    $this->output .= "</table><a href='$edit' class='ui-button  ui-button-text'>" . $this->_('Edit') . "</a></dd>";
   }
 
   /**
@@ -338,9 +359,9 @@ class View {
    */
   public function renderUploadedFile() {
     $output = '';
-    if ($this->data['xmlfile']) {
-      $output .= '<p><strong>' . __('Selected File') . ':</strong> ' . $this->data['xmlfile'];
-      $output .= '<a href="' . wire('page')->url . '?action=parse" style="margin-left: 10px;" class="ui-button  ui-button-text">' . __('Reparse file')  . '</a></p>';
+    if ($this->getData('xmlfile')) {
+      $output .= '<p><strong>' . $this->_('Selected File') . ':</strong> ' . $this->data['xmlfile'];
+      $output .= '<a href="' . $this->wire('page')->url . '?action=parse" style="margin-left: 10px;" class="ui-button  ui-button-text">' . $this->_('Reparse file')  . '</a></p>';
     }
 
     return $output;
@@ -354,16 +375,16 @@ class View {
    */
   public function renderUploadForm() {
     $form = $this->getForm(true);
-    $wrapper = $this->getWrapper(__('Upload XML'));
+    $wrapper = $this->getWrapper($this->_('Upload XML'));
 
-    $field = wire('modules')->get('InputfieldFile');
+    $field = $this->wire('modules')->get('InputfieldFile');
     $field->extensions = 'xml';
     $field->maxFiles = 1;
     $field->descriptionRows = 0;
     $field->overwrite = true;
     $field->attr('id+name', 'xmlfile');
-    $field->label = __('XML File');
-    $field->description = __('Upload a XML file.');
+    $field->label = $this->_('XML File');
+    $field->description = $this->_('Upload a XML file.');
 
     $wrapper->add($field);
     $form->add($wrapper);
@@ -380,31 +401,31 @@ class View {
    */
   public function renderPreconfigurationForm($isAdmin) {
     $form = $this->getForm();
-    $form->description = __("Step 1: Configuration Settings");
-    $wrapper = $this->getWrapper(__('Overview'));
-    $set = $this->getFieldset(__('Settings'));
+    $form->description = $this->_("Step 1: Configuration Settings");
+    $wrapper = $this->getWrapper($this->_('Overview'));
+    $set = $this->getFieldset($this->_('Settings'));
 
     if ($isAdmin) {
       $fieldTemplate = $this->getField(
         'InputfieldSelect',
-        __('Template'),
+        $this->_('Template'),
         'xpTemplate',
-        $this->data['xpTemplate'],
+        $this->getData('xpTemplate'),
         '',
         50,
         true
       );
 
-      foreach (wire('templates') as $template) {
-        if ($template->flags & \Template::flagSystem) continue;
+      foreach ($this->wire('templates') as $template) {
+        if ($template->flags & Template::flagSystem) continue;
         $fieldTemplate->addOption($template->id, (!empty($template->label) ? $template->label : $template->name));
       }
 
       $fieldPage = $this->getField(
         'InputfieldPageListSelect',
-        __('Parent Page'),
+        $this->_('Parent Page'),
         'xpParent',
-        $this->data['xpParent'],
+        $this->getData('xpParent'),
         '',
         50,
         true
@@ -412,27 +433,27 @@ class View {
 
       $fieldMode = $this->getField(
         'InputfieldSelect',
-        __('Update Mode'),
+        $this->_('Update Mode'),
         'xpMode',
-        $this->data['xpMode'],
-        __('Existing pages will be determined using mappings that are a "unique target".'),
+        $this->getData('xpMode'),
+        $this->_('Existing pages will be determined using mappings that are a "unique target".'),
         50,
         true
       );
 
       $fieldMode
-        ->addOption(1, __(self::MODE_1))
-        ->addOption(2, __(self::MODE_2));
+        ->addOption(1, $this->_(self::MODE_1))
+        ->addOption(2, $this->_(self::MODE_2));
 
       $set->add($fieldTemplate)->add($fieldPage)->add($fieldMode);
     }
 
     $fieldImgPath = $this->getField(
       'InputfieldText',
-      __('Path to images'),
+      $this->_('Path to images'),
       'xpImgPath',
-      $this->data['xpImgPath'],
-      __('Path where the images are placed, without ending `/`.'),
+      $this->getData('xpImgPath'),
+      $this->_('Path where the images are placed, without ending `/`.'),
       50
     );
 
