@@ -2,6 +2,10 @@
 
 namespace Jos\Lib;
 
+use \ProcessWire\ImportPagesXML;
+use \ProcessWire\WireUpload;
+use \ProcessWire\Page;
+
 /**
  * Class Parser
  *
@@ -10,7 +14,7 @@ namespace Jos\Lib;
  * @package ImportPagesXml
  * @author Tabea David <td@justonestep.de>
  */
-class Parser {
+class Parser extends \ProcessWire\Wire {
 
   /**
    * @field array Default config values
@@ -31,7 +35,7 @@ class Parser {
   * construct
   */
   public function __construct() {
-    $this->data = wire('modules')->getModuleConfigData(\ImportPagesXml::MODULE_NAME);
+    $this->data = $this->wire('modules')->getModuleConfigData(ImportPagesXml::MODULE_NAME);
   }
 
   /**
@@ -42,7 +46,7 @@ class Parser {
    */
   public function isPreconfigured() {
     $state = false;
-    if ($this->data['xpTemplate'] && $this->data['xpParent']) {
+    if (array_key_exists('xpTemplate', $this->data) && array_key_exists('xpParent', $this->data)) {
       $state = true;
     }
     return $state;
@@ -54,8 +58,8 @@ class Parser {
    */
   public function setPreconfiguration() {
     foreach (self::$preConfigFields as $field) {
-      if (wire('input')->post->$field)
-        $this->data[$field] = wire('input')->post->$field;
+      if ($this->wire('input')->post->$field)
+        $this->data[$field] = $this->wire('input')->post->$field;
     }
     $this->save();
   }
@@ -65,25 +69,25 @@ class Parser {
    *
    */
   public function setConfiguration() {
-    $this->data['xpContext'] = wire('input')->post->xpContext;
-    $this->data['xpId'] = wire('input')->post->xpId;
+    $this->data['xpContext'] = $this->wire('input')->post->xpContext;
+    $this->data['xpId'] = $this->wire('input')->post->xpId;
 
-    $template = wire('templates')->get($this->data['xpTemplate']);
+    $template = $this->wire('templates')->get($this->data['xpTemplate']);
     $toJson = array();
     foreach ($template->fields as $tfield) {
       $name = $tfield->name;
-      $toJson[$name] = wire('input')->post->$name;
+      $toJson[$name] = $this->wire('input')->post->$name;
 
       // case Image, save description and tags as well
-      if ($tfield->type->className === FieldtypeImage) {
+      if ($tfield->type->className === 'FieldtypeImage') {
         if ($tfield->descriptionRows > 0) {
           $nameDesc = $name . 'Description';
-          $toJson[$nameDesc] = wire('input')->post->$nameDesc;
+          $toJson[$nameDesc] = $this->wire('input')->post->$nameDesc;
         }
 
         if ($tfield->useTags) {
           $nameTags = $name . 'Tags';
-          $toJson[$nameTags] = wire('input')->post->$nameTags;
+          $toJson[$nameTags] = $this->wire('input')->post->$nameTags;
         }
       }
     }
@@ -100,7 +104,7 @@ class Parser {
    */
   public function setXmlFile($form) {
     // new WireUpload
-    $ul = new \WireUpload('xmlfile');
+    $ul = new WireUpload('xmlfile');
     $ul->setValidExtensions(array('xml'));
     $ul->setMaxFiles(1);
     $ul->setOverwrite(true);
@@ -109,13 +113,13 @@ class Parser {
     $files = $ul->execute();
 
     if (count($files)) {
-      $form->message(__('XML upload sucessfull'));
+      $form->message($this->_('XML upload sucessfull'));
 
       $this->data['xmlfile'] = reset($files);
       $this->save();
-      wire('session')->redirect($this->page->url . '?action=parse');
+      $this->wire('session')->redirect($this->page->url . '?action=parse');
     } else {
-      $form->error(__('The file could not be uploaded, please try again.'));
+      $form->error($this->_('The file could not be uploaded, please try again.'));
     }
   }
 
@@ -124,7 +128,7 @@ class Parser {
    *
    */
   protected function save() {
-    wire('modules')->saveModuleConfigData(\ImportPagesXml::MODULE_NAME, $this->data);
+    $this->wire('modules')->saveModuleConfigData(ImportPagesXml::MODULE_NAME, $this->data);
   }
 
   /**
@@ -134,9 +138,9 @@ class Parser {
    *
    */
   protected function getUploadDir() {
-    $uploadDir = wire('config')->paths->assets . 'files/' . $this->page->id . '/';
+    $uploadDir = $this->wire('config')->paths->assets . 'files/' . $this->page->id . '/';
     if (!is_dir($uploadDir)) {
-      if (!wireMkdir($uploadDir)) throw new WireException('No upload path!');
+      if (!\ProcessWire\wireMkdir($uploadDir)) throw new WireException('No upload path!');
     }
 
     return $uploadDir;
@@ -211,11 +215,11 @@ class Parser {
    */
   protected function getCurrentPage($selector) {
     // check whether a page with this identifier already exists
-    $page = wire('pages')->get($selector);
+    $page = $this->wire('pages')->get($selector);
 
     // if not, create new page
     if (!$page->id) {
-      $page = new \Page;
+      $page = new Page;
       $page->template = $this->data['xpTemplate'];
       $page->parent = $this->data['xpParent'];
       $page->save();
@@ -240,7 +244,7 @@ class Parser {
     if ($containsTitle) {
       $titleValue = $containsTitle->__toString();
       $set['title'] = $titleValue;
-      $set['name'] = wire('sanitizer')->pageNameTranslate($titleValue);
+      $set['name'] = $this->wire('sanitizer')->pageNameTranslate($titleValue);
     }
 
     return $set;
@@ -280,20 +284,21 @@ class Parser {
     $this->deletePagesDependingOnMode();
 
     // get identifier
-    $fieldIdName = wire('fields')->get($this->data['xpId'])->name; // unique template field, identifier
+    $fieldIdName = $this->wire('fields')->get($this->data['xpId'])->name; // unique template field, identifier
     $fieldIdMapping = $conf->$fieldIdName; // unique field is mapped by ..
 
     // execute
     $items = $xml->xpath($context);
     foreach ($items as $item) {
-      $idValue = reset($item->xpath($fieldIdMapping));
+      $sxmleWrapper = $item->xpath($fieldIdMapping);
+      $idValue = reset($sxmleWrapper);
       if (!$idValue) break; // id value doesn't exist
 
       $page = $this->getCurrentPage("$fieldIdName={$idValue->__toString()}");
       $set = $this->getPageTitleAndName($item->xpath($conf->title)); // array containing page values
 
       // loop through template fields
-      $template = wire('templates')->get($this->data['xpTemplate']);
+      $template = $this->wire('templates')->get($this->data['xpTemplate']);
       foreach ($template->fields as $tfield) {
         if (!($conf->{$tfield->name})) continue; // no value - skip
         if ($tfield->name === 'title') continue; // equals title field - skip
@@ -324,12 +329,12 @@ class Parser {
    *
    */
   protected function deletePages() {
-    $trashPages = wire('pages')->find('has_parent=' . $this->data['xpParent'] . ', template=' . $this->data['xpTemplate']);
+    $trashPages = $this->wire('pages')->find('has_parent=' . $this->data['xpParent'] . ', template=' . $this->data['xpTemplate']);
     $count = 0;
     if ($trashPages->count() > 0) {
       foreach ($trashPages as $trashPage) {
         if ($trashPage instanceof \NullPage) continue;
-        wire('pages')->delete($trashPage, true);
+        $this->wire('pages')->delete($trashPage, true);
         $count++;
       }
     }

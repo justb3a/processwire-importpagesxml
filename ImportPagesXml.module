@@ -1,13 +1,15 @@
 <?php
 
+namespace ProcessWire;
+
 /**
  * ProcessWire XML Parser
  *
- * ProcessWire 2.x
+ * ProcessWire 3.x
  * Licensed under GNU/GPL v2, see LICENSE.TXT
  *
  * @author Tabea David <td@justonestep.de>
- * @version 0.0.3
+ * @version 1.0.0
  * @copyright Copyright (c) 2015
  * @see https://github.com/justonestep/processwire-importpagesxml
  * @see http://www.processwire.com
@@ -56,7 +58,7 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
   static public function getModuleInfo() {
     return array(
       'title' => 'Import Pages from XML',
-      'version' => 003,
+      'version' => 100,
       'summary' => 'Import XML files to create ProcessWire pages.',
       'author' => 'Tabea David',
       'icon' => 'th-list',
@@ -135,7 +137,8 @@ class ImportPagesXml extends Process implements Module, ConfigurableModule {
       $output = $this->view->renderHeadline(); // headline
       $output .= $this->view->render($this->user->isSuperuser());
       $form = $this->view->renderUploadForm();
-      $output .= $this->view->renderUploadedFile();
+
+      if ($this->user->isSuperuser()) $output .= $this->view->renderUploadedFile();
       $output .= $form->render();
 
       // submit upload xml file
